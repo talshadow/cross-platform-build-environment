@@ -1,0 +1,244 @@
+# cmake/external/OpenCV.cmake
+#
+# Збирає або знаходить OpenCV разом з opencv_contrib.
+# opencv_contrib завантажується як окремий EP (тільки unpack, без збірки).
+#
+# При збірці автоматично використовує вже підключені залежності:
+#   JPEG::JPEG, PNG::PNG, TIFF::TIFF, OpenSSL::SSL
+#
+# Provides imported targets (після першої успішної збірки — через find_package):
+#   opencv_core, opencv_imgproc, opencv_imgcodecs, opencv_highgui,
+#   opencv_videoio, opencv_video, opencv_features2d, opencv_calib3d,
+#   opencv_objdetect, opencv_dnn, opencv_ml, opencv_flann, opencv_photo
+#
+# При першій збірці (бібліотека ще не встановлена) — placeholder targets
+# з майбутніми шляхами. Після `cmake --build` повторна конфігурація
+# автоматично перейде на реальні targets через find_package.
+#
+# Опції:
+#   USE_SYSTEM_OPENCV      — ON: find_package в системі/sysroot
+#                            OFF (за замовченням): зібрати через ExternalProject
+#   OPENCV_ENABLE_CONTRIB  — ON (за замовченням): включати opencv_contrib модулі
+#
+# Кеш-змінні:
+#   OPENCV_VERSION         — версія для збірки
+#   OPENCV_URL             — URL архіву OpenCV
+#   OPENCV_CONTRIB_URL     — URL архіву opencv_contrib
+#   OPENCV_URL_HASH        — SHA256 хеш OpenCV (порожньо = не перевіряти)
+#   OPENCV_CONTRIB_URL_HASH — SHA256 хеш contrib (порожньо = не перевіряти)
+
+option(USE_SYSTEM_OPENCV
+    "Використовувати системний OpenCV (find_package) замість збірки з джерел"
+    OFF)
+
+option(OPENCV_ENABLE_CONTRIB
+    "Включати opencv_contrib модулі при збірці"
+    ON)
+
+set(OPENCV_VERSION  "4.10.0"
+    CACHE STRING "Версія OpenCV для збірки з джерел")
+
+set(OPENCV_URL
+    "https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VERSION}.tar.gz"
+    CACHE STRING "URL архіву OpenCV")
+
+set(OPENCV_CONTRIB_URL
+    "https://github.com/opencv/opencv_contrib/archive/refs/tags/${OPENCV_VERSION}.tar.gz"
+    CACHE STRING "URL архіву opencv_contrib")
+
+set(OPENCV_URL_HASH ""
+    CACHE STRING "SHA256 хеш архіву OpenCV (порожньо = не перевіряти)")
+
+set(OPENCV_CONTRIB_URL_HASH ""
+    CACHE STRING "SHA256 хеш архіву opencv_contrib (порожньо = не перевіряти)")
+
+# ---------------------------------------------------------------------------
+
+set(_ocv_prefix  "${EXTERNAL_INSTALL_PREFIX}")
+set(_ocv_lib_dir "${_ocv_prefix}/lib")
+set(_ocv_inc_dir "${_ocv_prefix}/include/opencv4")
+set(_ocv_core    "${_ocv_lib_dir}/libopencv_core.so")
+
+# Список модулів для placeholder targets (використовується якщо бібліотека ще не зібрана)
+set(_ocv_modules
+    opencv_core
+    opencv_imgproc
+    opencv_imgcodecs
+    opencv_highgui
+    opencv_videoio
+    opencv_video
+    opencv_features2d
+    opencv_calib3d
+    opencv_objdetect
+    opencv_dnn
+    opencv_ml
+    opencv_flann
+    opencv_photo
+)
+
+# Хелпер: створює imported targets для вже встановленого OpenCV
+macro(_ocv_make_imported_targets ep_name_or_empty)
+    foreach(_mod ${_ocv_modules})
+        if(NOT TARGET ${_mod})
+            set(_mod_lib "${_ocv_lib_dir}/lib${_mod}.so")
+            add_library(${_mod} SHARED IMPORTED GLOBAL)
+            set_target_properties(${_mod} PROPERTIES
+                IMPORTED_LOCATION             "${_mod_lib}"
+                INTERFACE_INCLUDE_DIRECTORIES "${_ocv_inc_dir};${_ocv_prefix}/include"
+            )
+            if(ep_name_or_empty AND TARGET ${ep_name_or_empty})
+                add_dependencies(${_mod} ${ep_name_or_empty})
+            endif()
+        endif()
+    endforeach()
+endmacro()
+
+# ---------------------------------------------------------------------------
+
+if(USE_SYSTEM_OPENCV)
+    # ── Системна бібліотека / sysroot ───────────────────────────────────────
+    find_package(OpenCV REQUIRED)
+    message(STATUS "[OpenCV] Системна бібліотека версії ${OpenCV_VERSION}")
+
+else()
+    # ── Збірка через ExternalProject ────────────────────────────────────────
+    if(EXISTS "${_ocv_core}")
+        # Вже встановлено — find_package знайде через EXTERNAL_INSTALL_PREFIX
+        # (він вже у CMAKE_PREFIX_PATH / CMAKE_FIND_ROOT_PATH з Common.cmake)
+        message(STATUS "[OpenCV] Знайдено готову бібліотеку у ${_ocv_prefix}")
+        find_package(OpenCV REQUIRED HINTS "${_ocv_prefix}" NO_DEFAULT_PATH)
+        message(STATUS "[OpenCV] Завантажено OpenCV ${OpenCV_VERSION}")
+
+    else()
+        message(STATUS "[OpenCV] Буде зібрано з джерел (версія ${OPENCV_VERSION})")
+
+        # ── opencv_contrib: тільки unpack, zbírka відбувається у opencv_ep ─
+        set(_contrib_src "${CMAKE_BINARY_DIR}/_ep_src/opencv_contrib")
+
+        if(OPENCV_ENABLE_CONTRIB)
+            set(_contrib_hash_arg "")
+            if(OPENCV_CONTRIB_URL_HASH)
+                set(_contrib_hash_arg URL_HASH "SHA256=${OPENCV_CONTRIB_URL_HASH}")
+            endif()
+
+            ExternalProject_Add(opencv_contrib_ep
+                URL              "${OPENCV_CONTRIB_URL}"
+                ${_contrib_hash_arg}
+                SOURCE_DIR       "${_contrib_src}"
+                CONFIGURE_COMMAND ""
+                BUILD_COMMAND     ""
+                INSTALL_COMMAND   ""
+                LOG_DOWNLOAD      ON
+            )
+            set(_ocv_contrib_arg
+                "-DOPENCV_EXTRA_MODULES_PATH=${_contrib_src}/modules")
+        else()
+            set(_ocv_contrib_arg "")
+        endif()
+
+        # ── Збираємо аргументи залежних бібліотек ─────────────────────────
+        set(_ocv_dep_args
+            # Вимикаємо пошук системних бібліотек якщо не вказано явно
+            -DWITH_JASPER=OFF
+            -DWITH_WEBP=OFF
+            -DWITH_OPENJPEG=OFF
+        )
+
+        if(TARGET JPEG::JPEG)
+            get_target_property(_jpeg_loc JPEG::JPEG IMPORTED_LOCATION)
+            if(_jpeg_loc AND NOT _jpeg_loc MATCHES "NOTFOUND")
+                list(APPEND _ocv_dep_args
+                    -DWITH_JPEG=ON
+                    "-DJPEG_LIBRARY=${_jpeg_loc}"
+                    "-DJPEG_INCLUDE_DIR=${EXTERNAL_INSTALL_PREFIX}/include"
+                )
+            endif()
+        endif()
+
+        if(TARGET PNG::PNG)
+            get_target_property(_png_loc PNG::PNG IMPORTED_LOCATION)
+            if(_png_loc AND NOT _png_loc MATCHES "NOTFOUND")
+                list(APPEND _ocv_dep_args
+                    -DWITH_PNG=ON
+                    "-DPNG_LIBRARY=${_png_loc}"
+                    "-DPNG_PNG_INCLUDE_DIR=${EXTERNAL_INSTALL_PREFIX}/include"
+                )
+            endif()
+        endif()
+
+        if(TARGET TIFF::TIFF)
+            get_target_property(_tiff_loc TIFF::TIFF IMPORTED_LOCATION)
+            if(_tiff_loc AND NOT _tiff_loc MATCHES "NOTFOUND")
+                list(APPEND _ocv_dep_args
+                    -DWITH_TIFF=ON
+                    "-DTIFF_LIBRARY=${_tiff_loc}"
+                    "-DTIFF_INCLUDE_DIR=${EXTERNAL_INSTALL_PREFIX}/include"
+                )
+            endif()
+        endif()
+
+        if(TARGET OpenSSL::SSL)
+            list(APPEND _ocv_dep_args
+                -DWITH_OPENSSL=ON
+                "-DOPENSSL_ROOT_DIR=${EXTERNAL_INSTALL_PREFIX}"
+            )
+        endif()
+
+        ep_cmake_args(_ocv_cmake_args
+            # Мінімізуємо залежності для embedded/cross-compilation
+            -DBUILD_SHARED_LIBS=ON
+            -DBUILD_TESTS=OFF
+            -DBUILD_PERF_TESTS=OFF
+            -DBUILD_EXAMPLES=OFF
+            -DBUILD_DOCS=OFF
+            -DWITH_GTK=OFF
+            -DWITH_QT=OFF
+            -DWITH_CUDA=OFF
+            -DWITH_OPENCL=OFF
+            -DWITH_IPP=OFF
+            -DWITH_TBB=OFF
+            -DOPENCV_GENERATE_PKGCONFIG=ON
+            ${_ocv_contrib_arg}
+            ${_ocv_dep_args}
+        )
+
+        set(_ocv_hash_arg "")
+        if(OPENCV_URL_HASH)
+            set(_ocv_hash_arg URL_HASH "SHA256=${OPENCV_URL_HASH}")
+        endif()
+
+        # Залежності: спочатку contrib (unpack), потім image libs
+        # _ep_collect_deps повертає тільки імена цілей (без "DEPENDS")
+        set(_ocv_ep_depends "")
+        if(OPENCV_ENABLE_CONTRIB)
+            list(APPEND _ocv_ep_depends opencv_contrib_ep)
+        endif()
+        _ep_collect_deps(_ocv_img_targets libjpeg_ep libpng_ep libtiff_ep openssl_ep)
+        list(APPEND _ocv_ep_depends ${_ocv_img_targets})
+
+        # BYPRODUCTS — основні модулі для Ninja
+        set(_ocv_byproducts "")
+        foreach(_mod IN LISTS _ocv_modules)
+            list(APPEND _ocv_byproducts "${_ocv_lib_dir}/lib${_mod}.so")
+        endforeach()
+
+        ExternalProject_Add(opencv_ep
+            URL              "${OPENCV_URL}"
+            ${_ocv_hash_arg}
+            CMAKE_ARGS       ${_ocv_cmake_args}
+            BUILD_BYPRODUCTS ${_ocv_byproducts}
+            DEPENDS          ${_ocv_ep_depends}
+            LOG_DOWNLOAD     ON
+            LOG_BUILD        ON
+            LOG_INSTALL      ON
+        )
+
+        # Placeholder imported targets з майбутніми шляхами
+        _ocv_make_imported_targets(opencv_ep)
+    endif()
+endif()
+
+unset(_ocv_prefix)
+unset(_ocv_lib_dir)
+unset(_ocv_inc_dir)
+unset(_ocv_core)
