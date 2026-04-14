@@ -430,6 +430,12 @@
       "execution": { "jobs": 4 }
     },
     {
+      "name": "clang-tsan",
+      "configurePreset": "clang-tsan",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 1 }
+    },
+    {
       "name": "clang18-asan",
       "configurePreset": "clang18-asan",
       "output": { "outputOnFailure": true },

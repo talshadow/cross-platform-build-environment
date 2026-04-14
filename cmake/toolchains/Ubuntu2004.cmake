@@ -63,10 +63,4 @@ unset(_GCC_NM)
 set(CMAKE_C_FLAGS_INIT   "-march=x86-64 -mtune=generic" CACHE INTERNAL "")
 set(CMAKE_CXX_FLAGS_INIT "-march=x86-64 -mtune=generic" CACHE INTERNAL "")
 
-# Для нативної збірки пошук бібліотек та програм — стандартний
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY BOTH)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE BOTH)
-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
-
 message(STATUS "[Ubuntu2004] Компілятор: ${CMAKE_C_COMPILER}, AR: ${CMAKE_AR}")

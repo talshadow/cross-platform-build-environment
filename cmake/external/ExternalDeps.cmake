@@ -6,12 +6,13 @@
 #   include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/external/ExternalDeps.cmake")
 #
 # Порядок підключення важливий: залежності ідуть раніше залежних.
-# LibTiff    <- LibJpeg, LibPng
-# OpenCV     <- LibJpeg, LibPng, LibTiff, OpenSSL
-# LibPisp    <- LibCamera, Boost
-# PhySysCpp  <- PhySys
-# RpiCamApps <- LibCamera, Boost
-# AirSim     <- Eigen3
+# LibTiff     <- LibJpeg, LibPng
+# OpenCV      <- LibJpeg, LibPng, LibTiff, OpenSSL
+# LibEvent    <- OpenSSL
+# LibPisp     <- LibCamera, Boost
+# RpiCamApps  <- LibCamera, Boost
+# AirSim      <- Eigen3
+# PhySysCpp   <- PhySys
 #
 # Кожна бібліотека управляється окремим cmake-файлом у цій директорії.
 # Для додавання нової бібліотеки:

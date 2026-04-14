@@ -86,6 +86,8 @@ set(_sb_main_cmake_args
     -DENABLE_UBSAN=${ENABLE_UBSAN}
     -DENABLE_TSAN=${ENABLE_TSAN}
     -DENABLE_LTO=${ENABLE_LTO}
+    # OpenCV: передаємо contrib прапор щоб основний проєкт не перебудовував deps
+    -DOPENCV_ENABLE_CONTRIB=${OPENCV_ENABLE_CONTRIB}
 )
 
 # Передаємо toolchain

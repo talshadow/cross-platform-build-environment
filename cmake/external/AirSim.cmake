@@ -81,8 +81,8 @@ else()
             -DBUILD_EXAMPLES=OFF
             # Використовуємо наш Eigen
             -DEIGEN3_INCLUDE_DIR=${_airsim_eigen_inc}
-            # rpclib збирається як bundled (статична) — це нормально
-            -DRPC_LIB_INCLUDES=${EXTERNAL_INSTALL_PREFIX}/include
+            # rpclib — bundled всередині AirSim (external/rpclib/),
+            # не встановлюється в EXTERNAL_INSTALL_PREFIX, не потребує явного шляху
         )
 
         ExternalProject_Add(airsim_ep

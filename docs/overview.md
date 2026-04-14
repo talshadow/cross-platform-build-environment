@@ -40,23 +40,40 @@ SupportRaspberryPI/
 │   │   ├── RaspberryPi5.cmake  # AArch64 Cortex-A76 (Pi 5)
 │   │   ├── Yocto.cmake         # Yocto SDK (будь-яка архітектура)
 │   │   ├── Ubuntu2004.cmake    # x86_64, GCC 9/10
-│   │   └── Ubuntu2404.cmake    # x86_64, GCC 13/14
+│   │   ├── Ubuntu2404.cmake    # x86_64, GCC 13/14
+│   │   └── Clang.cmake         # x86_64, Clang (версія через CLANG_VERSION)
 │   │
 │   ├── modules/
 │   │   ├── CompilerWarnings.cmake    # target_enable_warnings()
 │   │   ├── Sanitizers.cmake          # target_enable_sanitizers()
 │   │   ├── CrossCompileHelpers.cmake # cross_check_cxx_flag(), cross_feature_check()
-│   │   └── GitVersion.cmake          # git_get_version(), git_get_commit_hash()
+│   │   ├── GitVersion.cmake          # git_get_version(), git_get_commit_hash()
+│   │   └── StripDebug.cmake          # strip_debug / strip_all / strip_split targets
 │   │
 │   ├── external/
 │   │   ├── Common.cmake        # Спільні утиліти ExternalProject
 │   │   ├── ExternalDeps.cmake  # Головна точка підключення залежностей
-│   │   ├── LibPng.cmake        # libpng (PNG::PNG)
-│   │   ├── LibJpeg.cmake       # libjpeg-turbo (JPEG::JPEG)
-│   │   ├── LibTiff.cmake       # libtiff (TIFF::TIFF)
-│   │   ├── OpenSSL.cmake       # OpenSSL (OpenSSL::SSL, OpenSSL::Crypto)
-│   │   ├── Boost.cmake         # Boost (Boost::headers, ...)
-│   │   └── OpenCV.cmake        # OpenCV (opencv_core, ...)
+│   │   ├── LibPng.cmake        # libpng           (PNG::PNG)
+│   │   ├── LibJpeg.cmake       # libjpeg-turbo    (JPEG::JPEG)
+│   │   ├── LibTiff.cmake       # libtiff           (TIFF::TIFF)
+│   │   ├── OpenSSL.cmake       # OpenSSL           (OpenSSL::SSL, ::Crypto)
+│   │   ├── Boost.cmake         # Boost             (Boost::headers, ::program_options)
+│   │   ├── OpenCV.cmake        # OpenCV            (opencv_core, ...)
+│   │   ├── GeographicLib.cmake # GeographicLib     (GeographicLib::GeographicLib)
+│   │   ├── Eigen3.cmake        # Eigen3            (Eigen3::Eigen) header-only
+│   │   ├── LibEvent.cmake      # libevent          (libevent::core, ::extra)
+│   │   ├── LibCamera.cmake     # libcamera         (libcamera::libcamera)
+│   │   ├── LibPisp.cmake       # libpisp           (libpisp::libpisp)
+│   │   ├── Nlohmann.cmake      # nlohmann/json     (nlohmann_json::nlohmann_json) h-only
+│   │   ├── BoostDI.cmake       # boost-ext/di      (boost::di) header-only
+│   │   ├── BoostSML.cmake      # boost-ext/sml     (boost::sml) header-only
+│   │   ├── EasyProfiler.cmake  # easy_profiler     (easy_profiler::easy_profiler)
+│   │   ├── Ncnn.cmake          # ncnn              (ncnn::ncnn)
+│   │   ├── LibIr.cmake         # libir             (libir::libir)
+│   │   ├── AirSim.cmake        # AirSim client     (AirSim::AirLib)
+│   │   ├── PhySys.cmake        # PhysicsFS         (PhysicsFS::PhysicsFS)
+│   │   ├── PhySysCpp.cmake     # physfs-hpp        (physfs-hpp::physfs-hpp) h-only
+│   │   └── RpiCamApps.cmake    # rpicam-apps       (rpicam_apps::camera_app)
 │   │
 │   └── SuperBuild.cmake        # Superbuild режим (всі deps + main як EP)
 │

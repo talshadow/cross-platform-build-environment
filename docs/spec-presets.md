@@ -41,11 +41,13 @@ base  (hidden)
 
 | Частина | Допустимі значення |
 |---|---|
-| `platform` | `ubuntu2004`, `ubuntu2404`, `rpi4`, `rpi5`, `yocto` |
-| `buildtype` | `debug`, `release` |
+| `platform` | `native`, `ubuntu2004`, `ubuntu2404`, `clang`, `clang<ver>`, `rpi4`, `rpi5`, `yocto` |
+| `buildtype` | `debug`, `release`, `relwithdebinfo` |
 | `variant` | `asan`, `tsan`, (майбутні: `lto`, `coverage`) |
 
-**Приклади:** `rpi4-release`, `ubuntu2404-debug`, `ubuntu2404-asan`.
+**Приклади:** `rpi4-release`, `ubuntu2404-debug`, `ubuntu2404-asan`, `clang-tsan`, `clang18-release`.
+
+`clang<ver>` — версійний Clang (напр. `clang18`); `clang` без версії — системний.
 
 Назва `configurePreset` у `buildPresets` і `testPresets` **повинна точно збігатись** з назвою відповідного `configurePreset`.
 
@@ -88,9 +90,10 @@ base  (hidden)
 }
 ```
 
-- `testPreset` створюється **лише для нативних** пресетів (`ubuntu*`).
-- `jobs: 1` — для санітайзерів (ASAN/TSAN), щоб уникнути перехресного шуму.
+- `testPreset` створюється **лише для нативних** пресетів (`ubuntu*`, `clang*`, `native`).
+- `jobs: 1` — для санітайзерів (ASAN/TSAN), щоб уникнути перехресного ��уму.
 - `jobs: 4` — для звичайних нативних пресетів.
+- `relwithdebinfo` пресети зазвичай не мають testPreset.
 
 ---
 

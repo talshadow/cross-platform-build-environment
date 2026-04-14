@@ -184,7 +184,7 @@ else()
 
         ep_cmake_args(_ocv_cmake_args
             # Мінімізуємо залежності для embedded/cross-compilation
-            -DBUILD_SHARED_LIBS=ON
+            # BUILD_SHARED_LIBS=ON вже передається через ep_cmake_args()
             -DBUILD_TESTS=OFF
             -DBUILD_PERF_TESTS=OFF
             -DBUILD_EXAMPLES=OFF

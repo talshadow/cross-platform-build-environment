@@ -58,8 +58,8 @@ source /opt/poky/<ver>/environment-setup-<target>-poky-linux
 
 ```
 cmake/toolchains/   — toolchain файли для кожної платформи
-cmake/modules/      — CompilerWarnings, Sanitizers, CrossCompileHelpers, GitVersion
-cmake/external/     — сторонні бібліотеки через ExternalProject (libpng, libjpeg, libtiff, OpenSSL, Boost, OpenCV)
+cmake/modules/      — CompilerWarnings, Sanitizers, CrossCompileHelpers, GitVersion, StripDebug
+cmake/external/     — сторонні бібліотеки через ExternalProject (21 бібліотека; див. spec-external.md)
 cmake/SuperBuild.cmake — superbuild режим
 scripts/            — install-toolchains, get-sysroot-*, sync-sysroot, build, deploy
 docs/               — overview.md, toolchains.md, getting-started.md
@@ -73,9 +73,13 @@ tests/              — тести GTest (CMakeLists.txt-заглушка)
 |---|---|---|
 | `native-debug/release/relwithdebinfo` | системний компілятор | нативний |
 | `native-asan` | системний компілятор + ASAN + UBSAN | нативний |
-| `ubuntu2004-debug/release` | Ubuntu 20.04, GCC 10 | нативний |
-| `ubuntu2404-debug/release` | Ubuntu 24.04, GCC 13 | нативний |
+| `ubuntu2004-debug/release/relwithdebinfo` | Ubuntu 20.04, GCC 10 | нативний |
+| `ubuntu2404-debug/release/relwithdebinfo` | Ubuntu 24.04, GCC 13 | нативний |
 | `ubuntu2404-asan` | Ubuntu 24.04 + ASAN + UBSAN | нативний |
+| `clang-debug/release/relwithdebinfo` | системний Clang | нативний |
+| `clang-asan` | Clang + ASAN + UBSAN | нативний |
+| `clang-tsan` | Clang + ThreadSanitizer | нативний |
+| `clang18-debug/release/asan` | Clang 18 (фіксована версія) | нативний |
 | `rpi4-debug/release/relwithdebinfo` | Pi 4/400/CM4, Cortex-A72 | крос |
 | `rpi5-debug/release/relwithdebinfo` | Pi 5, Cortex-A76 | крос |
 | `yocto-debug/release/relwithdebinfo` | Yocto (будь-яка arch) | крос |
@@ -87,7 +91,9 @@ tests/              — тести GTest (CMakeLists.txt-заглушка)
 | `RPI_SYSROOT` | RaspberryPi*.cmake | Шлях до sysroot RPi |
 | `RPI<N>_TOOLCHAIN_PREFIX` | RaspberryPi*.cmake | Префікс компілятора |
 | `YOCTO_SDK_SYSROOT` | Yocto.cmake | Перевизначення target sysroot |
-| `UBUNTU200<4>_GCC_VERSION` | Ubuntu*.cmake | Версія GCC |
+| `UBUNTU200<4>_GCC_VERSION` | Ubuntu*.cmake | Версія GCC (9/10 або 13/14) |
+| `CLANG_VERSION` | Clang.cmake | Версія Clang (напр. `18`; порожньо = системний) |
+| `CLANG_USE_LLD` | Clang.cmake | Використовувати lld замість ld (OFF за замовч.) |
 | `BUILD_TESTS` | CMakeLists.txt | Збирати тести (ON/OFF) |
 | `ENABLE_ASAN/UBSAN/TSAN` | CMakeLists.txt | Санітайзери |
 | `ENABLE_LTO` | CMakeLists.txt | Link-Time Optimization |
@@ -162,8 +168,16 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/external/ExternalDeps.cmake")
 target_link_libraries(my_app PRIVATE PNG::PNG JPEG::JPEG OpenSSL::SSL)
 ```
 
-Опції: `USE_SYSTEM_LIBPNG`, `USE_SYSTEM_LIBJPEG`, `USE_SYSTEM_LIBTIFF`,
-`USE_SYSTEM_OPENSSL`, `USE_SYSTEM_BOOST`, `USE_SYSTEM_OPENCV` (за замовч. `OFF` — збирати з джерел).
+Повний список `USE_SYSTEM_*` опцій (за замовч. `OFF`, окрім відмічених):
+
+`USE_SYSTEM_LIBPNG`, `USE_SYSTEM_LIBJPEG`, `USE_SYSTEM_LIBTIFF`,
+`USE_SYSTEM_OPENSSL`, `USE_SYSTEM_BOOST`, `USE_SYSTEM_OPENCV`,
+`USE_SYSTEM_GEOGRAPHICLIB`, `USE_SYSTEM_EIGEN3`, `USE_SYSTEM_LIBEVENT`,
+`USE_SYSTEM_LIBCAMERA` **(ON)**, `USE_SYSTEM_LIBPISP` **(ON)**,
+`USE_SYSTEM_NLOHMANN`, `USE_SYSTEM_BOOSTDI`, `USE_SYSTEM_BOOSTSML`,
+`USE_SYSTEM_EASYPROFILER`, `USE_SYSTEM_NCNN`, `USE_SYSTEM_LIBIR`,
+`USE_SYSTEM_AIRSIM`, `USE_SYSTEM_PHYSYS`, `USE_SYSTEM_PHYSYSCPP`,
+`USE_SYSTEM_RPICAMAPPS` **(ON)**.
 
 SuperBuild: `-DSUPERBUILD=ON` — збирає deps і основний проєкт як окремі ExternalProject.
 

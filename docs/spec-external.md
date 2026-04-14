@@ -6,12 +6,22 @@
 cmake/external/
 ├── Common.cmake        ← спільні утиліти, підключається першим
 ├── ExternalDeps.cmake  ← точка входу; include() усі бібліотеки в правильному порядку
-├── LibPng.cmake
-├── LibJpeg.cmake
-├── LibTiff.cmake       ← залежить від LibJpeg + LibPng
-├── OpenSSL.cmake
-├── Boost.cmake
-└── OpenCV.cmake        ← залежить від LibJpeg, LibPng, LibTiff, OpenSSL
+│
+├── ── Незалежні ──
+├── LibPng.cmake        LibJpeg.cmake   OpenSSL.cmake   Boost.cmake
+├── Eigen3.cmake        Nlohmann.cmake  BoostDI.cmake   BoostSML.cmake
+├── EasyProfiler.cmake  Ncnn.cmake      LibIr.cmake     GeographicLib.cmake
+│
+├── ── Залежності (порядок важливий) ──
+├── LibTiff.cmake       ← LibJpeg, LibPng
+├── OpenCV.cmake        ← LibJpeg, LibPng, LibTiff, OpenSSL
+├── LibEvent.cmake      ← OpenSSL
+├── LibCamera.cmake     ← (незалежна; зазвичай з sysroot)
+├── LibPisp.cmake       ← LibCamera, Boost
+├── RpiCamApps.cmake    ← LibCamera, Boost
+├── AirSim.cmake        ← Eigen3
+├── PhySys.cmake        ← (незалежна — PhysicsFS)
+└── PhySysCpp.cmake     ← PhySys  (physfs-hpp)
 cmake/SuperBuild.cmake  ← superbuild режим
 ```
 
@@ -29,8 +39,23 @@ cmake/SuperBuild.cmake  ← superbuild режим
 | libjpeg-turbo | `JPEG::JPEG` | `SHARED IMPORTED` |
 | libtiff | `TIFF::TIFF` | `SHARED IMPORTED` |
 | OpenSSL | `OpenSSL::SSL`, `OpenSSL::Crypto` | `SHARED IMPORTED` |
-| Boost | `Boost::headers` | `INTERFACE IMPORTED` |
+| Boost | `Boost::headers`, `Boost::program_options` | `INTERFACE / SHARED` |
 | OpenCV | `opencv_core`, `opencv_imgproc`, … | `SHARED IMPORTED` |
+| GeographicLib | `GeographicLib::GeographicLib` | `SHARED IMPORTED` |
+| Eigen3 | `Eigen3::Eigen` | `INTERFACE IMPORTED` |
+| libevent | `libevent::core`, `libevent::extra` | `SHARED IMPORTED` |
+| libcamera | `libcamera::libcamera` | `SHARED IMPORTED` |
+| libpisp | `libpisp::libpisp` | `SHARED IMPORTED` |
+| nlohmann/json | `nlohmann_json::nlohmann_json` | `INTERFACE IMPORTED` |
+| boost::di | `boost::di` | `INTERFACE IMPORTED` |
+| boost::sml | `boost::sml` | `INTERFACE IMPORTED` |
+| easy_profiler | `easy_profiler::easy_profiler` | `SHARED IMPORTED` |
+| ncnn | `ncnn::ncnn` | `SHARED IMPORTED` |
+| libir | `libir::libir` | `SHARED IMPORTED` |
+| AirSim | `AirSim::AirLib` | `SHARED IMPORTED` |
+| PhysicsFS | `PhysicsFS::PhysicsFS` | `SHARED IMPORTED` |
+| physfs-hpp | `physfs-hpp::physfs-hpp` | `INTERFACE IMPORTED` |
+| rpicam-apps | `rpicam_apps::camera_app` | `SHARED IMPORTED` |
 
 Target повинен бути оголошений через `ep_imported_library()` або `ep_imported_library_from_ep()` з `Common.cmake`. Виклики ідемпотентні — повторний include() безпечний.
 
@@ -315,18 +340,33 @@ ExternalProject_Add(libtiff_ep DEPENDS ${_deps} ...)
 ## Порядок залежностей у ExternalDeps.cmake
 
 ```
-LibPng   ──┐
-LibJpeg  ──┼──▶ LibTiff ──┐
-           │               └──▶ OpenCV
-OpenSSL  ──┘──────────────────▶ OpenCV
-Boost    ─────────────────────▶ OpenCV
+LibPng     ──┐
+LibJpeg    ──┼──▶ LibTiff ──┐
+             │               └──▶ OpenCV
+OpenSSL    ──┘──────────────────▶ OpenCV
+                 OpenSSL ────────▶ LibEvent
+LibCamera  ──┐
+             ├──▶ LibPisp
+Boost      ──┤
+             └──▶ RpiCamApps
+Eigen3     ──────▶ AirSim
+PhySys     ──────▶ PhySysCpp
 ```
+
+Незалежні бібліотеки (без залежностей між собою):
+`LibPng`, `LibJpeg`, `OpenSSL`, `Boost`, `Eigen3`, `GeographicLib`,
+`Nlohmann`, `BoostDI`, `BoostSML`, `EasyProfiler`, `Ncnn`, `LibIr`, `LibCamera`, `PhySys`
 
 Порядок `include()` у `ExternalDeps.cmake`:
 1. `Common.cmake`
-2. `LibPng.cmake`, `LibJpeg.cmake`, `OpenSSL.cmake`, `Boost.cmake` (незалежні)
+2. Незалежні бібліотеки
 3. `LibTiff.cmake` (залежить від LibJpeg + LibPng)
-4. `OpenCV.cmake` (залежить від усіх вище)
+4. `OpenCV.cmake` (залежить від LibJpeg, LibPng, LibTiff, OpenSSL)
+5. `LibEvent.cmake` (залежить від OpenSSL)
+6. `LibCamera.cmake`
+7. `LibPisp.cmake`, `RpiCamApps.cmake` (залежать від LibCamera + Boost)
+8. `AirSim.cmake` (залежить від Eigen3)
+9. `PhySys.cmake`, `PhySysCpp.cmake`
 
 ---
 

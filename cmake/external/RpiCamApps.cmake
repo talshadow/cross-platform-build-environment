@@ -70,7 +70,14 @@ if(USE_SYSTEM_RPICAMAPPS)
 
 else()
     # ── Алгоритм: find_package → ExternalProject_Add (Meson) ───────────────
-    if(EXISTS "${_rpicam_lib}")
+    find_package(libcamera_app QUIET
+        HINTS "${EXTERNAL_INSTALL_PREFIX}"
+        NO_DEFAULT_PATH)
+
+    if(libcamera_app_FOUND)
+        message(STATUS "[RpiCamApps] Знайдено готову бібліотеку у ${EXTERNAL_INSTALL_PREFIX}")
+
+    elseif(EXISTS "${_rpicam_lib}")
         ep_imported_library(rpicam_apps::camera_app "${_rpicam_lib}" "${_rpicam_inc}")
         message(STATUS "[RpiCamApps] Знайдено .so у ${EXTERNAL_INSTALL_PREFIX}")
 
