@@ -10,7 +10,7 @@
 #   USE_SYSTEM_NLOHMANN  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   NLOHMANN_VERSION, NLOHMANN_URL, NLOHMANN_URL_HASH
+#   NLOHMANN_VERSION, NLOHMANN_GIT_REPO
 
 option(USE_SYSTEM_NLOHMANN
     "Використовувати системну nlohmann/json замість збірки з джерел"
@@ -19,12 +19,9 @@ option(USE_SYSTEM_NLOHMANN
 set(NLOHMANN_VERSION "v3.11.3"
     CACHE STRING "Версія nlohmann/json для збірки з джерел")
 
-set(NLOHMANN_URL
-    "https://github.com/nlohmann/json/archive/refs/tags/${NLOHMANN_VERSION}.tar.gz"
-    CACHE STRING "URL архіву nlohmann/json")
-
-set(NLOHMANN_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву nlohmann/json (порожньо = не перевіряти)")
+set(NLOHMANN_GIT_REPO
+    "https://github.com/nlohmann/json.git"
+    CACHE STRING "Git репозиторій nlohmann/json")
 
 # ---------------------------------------------------------------------------
 
@@ -52,11 +49,6 @@ else()
     else()
         message(STATUS "[Nlohmann] Буде встановлено з джерел (${NLOHMANN_VERSION})")
 
-        set(_hash_arg "")
-        if(NLOHMANN_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${NLOHMANN_URL_HASH}")
-        endif()
-
         ep_cmake_args(_nlohmann_cmake_args
             -DJSON_BuildTests=OFF
             -DJSON_Install=ON
@@ -64,9 +56,10 @@ else()
         )
 
         ExternalProject_Add(nlohmann_ep
-            URL             "${NLOHMANN_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/nlohmann"
+            GIT_REPOSITORY  "${NLOHMANN_GIT_REPO}"
+            GIT_TAG         "${NLOHMANN_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/nlohmann"
             CMAKE_ARGS      ${_nlohmann_cmake_args}
             BUILD_BYPRODUCTS "${_nlohmann_inc}/nlohmann/json.hpp"
             LOG_DOWNLOAD    ON

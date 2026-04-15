@@ -11,7 +11,7 @@
 #   USE_SYSTEM_PHYSYS  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   PHYSYS_VERSION, PHYSYS_URL, PHYSYS_URL_HASH
+#   PHYSYS_VERSION, PHYSYS_GIT_REPO
 
 option(USE_SYSTEM_PHYSYS
     "Використовувати системну PhysicsFS замість збірки з джерел"
@@ -20,12 +20,9 @@ option(USE_SYSTEM_PHYSYS
 set(PHYSYS_VERSION "release-3.2.0"
     CACHE STRING "Версія PhysicsFS для збірки з джерел")
 
-set(PHYSYS_URL
-    "https://github.com/icculus/physfs/archive/refs/tags/${PHYSYS_VERSION}.tar.gz"
-    CACHE STRING "URL архіву PhysicsFS")
-
-set(PHYSYS_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву PhysicsFS (порожньо = не перевіряти)")
+set(PHYSYS_GIT_REPO
+    "https://github.com/icculus/physfs.git"
+    CACHE STRING "Git репозиторій PhysicsFS")
 
 # ---------------------------------------------------------------------------
 
@@ -49,11 +46,6 @@ else()
     else()
         message(STATUS "[PhysicsFS] Буде зібрано з джерел (${PHYSYS_VERSION})")
 
-        set(_hash_arg "")
-        if(PHYSYS_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${PHYSYS_URL_HASH}")
-        endif()
-
         ep_cmake_args(_physfs_cmake_args
             -DPHYSFS_BUILD_STATIC=OFF
             -DPHYSFS_BUILD_SHARED=ON
@@ -62,9 +54,10 @@ else()
         )
 
         ExternalProject_Add(physfs_ep
-            URL             "${PHYSYS_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/physfs"
+            GIT_REPOSITORY  "${PHYSYS_GIT_REPO}"
+            GIT_TAG         "${PHYSYS_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/physfs"
             CMAKE_ARGS      ${_physfs_cmake_args}
             BUILD_BYPRODUCTS "${_physfs_lib}"
             LOG_DOWNLOAD    ON

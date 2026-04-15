@@ -11,9 +11,8 @@
 #                         OFF (за замовченням): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   LIBJPEG_VERSION    — версія libjpeg-turbo для збірки
-#   LIBJPEG_URL        — URL архіву
-#   LIBJPEG_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   LIBJPEG_VERSION    — версія libjpeg-turbo (git тег)
+#   LIBJPEG_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_LIBJPEG
     "Використовувати системний libjpeg (find_package) замість збірки libjpeg-turbo"
@@ -22,12 +21,9 @@ option(USE_SYSTEM_LIBJPEG
 set(LIBJPEG_VERSION  "3.0.3"
     CACHE STRING "Версія libjpeg-turbo для збірки з джерел")
 
-set(LIBJPEG_URL
-    "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/${LIBJPEG_VERSION}/libjpeg-turbo-${LIBJPEG_VERSION}.tar.gz"
-    CACHE STRING "URL архіву libjpeg-turbo")
-
-set(LIBJPEG_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libjpeg-turbo (порожньо = не перевіряти)")
+set(LIBJPEG_GIT_REPO
+    "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
+    CACHE STRING "Git репозиторій libjpeg-turbo")
 
 # ---------------------------------------------------------------------------
 
@@ -48,11 +44,6 @@ else()
     else()
         message(STATUS "[LibJpeg] Буде зібрано з джерел (libjpeg-turbo ${LIBJPEG_VERSION})")
 
-        set(_jpeg_hash_arg "")
-        if(LIBJPEG_URL_HASH)
-            set(_jpeg_hash_arg URL_HASH "SHA256=${LIBJPEG_URL_HASH}")
-        endif()
-
         ep_cmake_args(_jpeg_cmake_args
             -DENABLE_SHARED=ON
             -DENABLE_STATIC=OFF
@@ -65,9 +56,10 @@ else()
         )
 
         ExternalProject_Add(libjpeg_ep
-            URL             "${LIBJPEG_URL}"
-            ${_jpeg_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libjpeg"
+            GIT_REPOSITORY  "${LIBJPEG_GIT_REPO}"
+            GIT_TAG         "${LIBJPEG_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libjpeg"
             CMAKE_ARGS      ${_jpeg_cmake_args}
             BUILD_BYPRODUCTS "${_jpeg_lib}"
             LOG_DOWNLOAD    ON

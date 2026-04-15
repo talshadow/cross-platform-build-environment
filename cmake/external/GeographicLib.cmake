@@ -12,9 +12,8 @@
 #                               OFF (за замовч.): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   GEOGRAPHICLIB_VERSION    — версія для збірки
-#   GEOGRAPHICLIB_URL        — URL архіву
-#   GEOGRAPHICLIB_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   GEOGRAPHICLIB_VERSION    — версія (git тег)
+#   GEOGRAPHICLIB_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_GEOGRAPHICLIB
     "Використовувати системну GeographicLib замість збірки з джерел"
@@ -23,12 +22,9 @@ option(USE_SYSTEM_GEOGRAPHICLIB
 set(GEOGRAPHICLIB_VERSION "2.4"
     CACHE STRING "Версія GeographicLib для збірки з джерел")
 
-set(GEOGRAPHICLIB_URL
-    "https://github.com/geographiclib/geographiclib/archive/refs/tags/v${GEOGRAPHICLIB_VERSION}.tar.gz"
-    CACHE STRING "URL архіву GeographicLib")
-
-set(GEOGRAPHICLIB_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву GeographicLib (порожньо = не перевіряти)")
+set(GEOGRAPHICLIB_GIT_REPO
+    "https://github.com/geographiclib/geographiclib.git"
+    CACHE STRING "Git репозиторій GeographicLib")
 
 # ---------------------------------------------------------------------------
 
@@ -55,11 +51,6 @@ else()
     else()
         message(STATUS "[GeographicLib] Буде зібрано з джерел (${GEOGRAPHICLIB_VERSION})")
 
-        set(_geolib_hash_arg "")
-        if(GEOGRAPHICLIB_URL_HASH)
-            set(_geolib_hash_arg URL_HASH "SHA256=${GEOGRAPHICLIB_URL_HASH}")
-        endif()
-
         ep_cmake_args(_geolib_cmake_args
             # GeographicLib не має обов'язкових зовнішніх залежностей.
             # BUILD_SHARED_LIBS=ON вже передається ep_cmake_args.
@@ -70,9 +61,10 @@ else()
 
         # GeographicLib не залежить від жодної з наших external бібліотек
         ExternalProject_Add(geographiclib_ep
-            URL             "${GEOGRAPHICLIB_URL}"
-            ${_geolib_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/geographiclib"
+            GIT_REPOSITORY  "${GEOGRAPHICLIB_GIT_REPO}"
+            GIT_TAG         "v${GEOGRAPHICLIB_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/geographiclib"
             CMAKE_ARGS      ${_geolib_cmake_args}
             BUILD_BYPRODUCTS "${_geolib_lib}"
             LOG_DOWNLOAD    ON

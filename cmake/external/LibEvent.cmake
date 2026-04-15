@@ -16,7 +16,7 @@
 #                          OFF (за замовч.): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   LIBEVENT_VERSION, LIBEVENT_URL, LIBEVENT_URL_HASH
+#   LIBEVENT_VERSION, LIBEVENT_GIT_REPO
 
 option(USE_SYSTEM_LIBEVENT
     "Використовувати системний libevent замість збірки з джерел"
@@ -25,12 +25,9 @@ option(USE_SYSTEM_LIBEVENT
 set(LIBEVENT_VERSION "2.1.12-stable"
     CACHE STRING "Версія libevent для збірки з джерел")
 
-set(LIBEVENT_URL
-    "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/libevent-${LIBEVENT_VERSION}.tar.gz"
-    CACHE STRING "URL архіву libevent")
-
-set(LIBEVENT_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libevent (порожньо = не перевіряти)")
+set(LIBEVENT_GIT_REPO
+    "https://github.com/libevent/libevent.git"
+    CACHE STRING "Git репозиторій libevent")
 
 # ---------------------------------------------------------------------------
 
@@ -57,11 +54,6 @@ else()
 
     else()
         message(STATUS "[LibEvent] Буде зібрано з джерел (${LIBEVENT_VERSION})")
-
-        set(_libevent_hash_arg "")
-        if(LIBEVENT_URL_HASH)
-            set(_libevent_hash_arg URL_HASH "SHA256=${LIBEVENT_URL_HASH}")
-        endif()
 
         # ── OpenSSL: якщо наш external OpenSSL присутній — передаємо явні шляхи.
         # ep_cmake_args вже додає CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=OFF,
@@ -96,9 +88,10 @@ else()
         _ep_collect_deps(_libevent_ep_deps openssl_ep)
 
         ExternalProject_Add(libevent_ep
-            URL             "${LIBEVENT_URL}"
-            ${_libevent_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libevent"
+            GIT_REPOSITORY  "${LIBEVENT_GIT_REPO}"
+            GIT_TAG         "release-${LIBEVENT_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libevent"
             CMAKE_ARGS      ${_libevent_cmake_args}
             DEPENDS         ${_libevent_ep_deps}
             BUILD_BYPRODUCTS

@@ -12,9 +12,8 @@
 #                        OFF (за замовч.): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   EIGEN3_VERSION    — версія для збірки
-#   EIGEN3_URL        — URL архіву
-#   EIGEN3_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   EIGEN3_VERSION    — версія (git тег)
+#   EIGEN3_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_EIGEN3
     "Використовувати системний Eigen3 замість встановлення з джерел"
@@ -23,12 +22,9 @@ option(USE_SYSTEM_EIGEN3
 set(EIGEN3_VERSION "3.4.0"
     CACHE STRING "Версія Eigen3 для встановлення з джерел")
 
-set(EIGEN3_URL
-    "https://gitlab.com/libeigen/eigen/-/archive/${EIGEN3_VERSION}/eigen-${EIGEN3_VERSION}.tar.gz"
-    CACHE STRING "URL архіву Eigen3")
-
-set(EIGEN3_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву Eigen3 (порожньо = не перевіряти)")
+set(EIGEN3_GIT_REPO
+    "https://gitlab.com/libeigen/eigen.git"
+    CACHE STRING "Git репозиторій Eigen3 (GitLab — офіційний upstream)")
 
 # ---------------------------------------------------------------------------
 # Eigen встановлює заголовки у <prefix>/include/eigen3/
@@ -56,11 +52,6 @@ else()
     else()
         message(STATUS "[Eigen3] Буде встановлено з джерел (${EIGEN3_VERSION})")
 
-        set(_eigen_hash_arg "")
-        if(EIGEN3_URL_HASH)
-            set(_eigen_hash_arg URL_HASH "SHA256=${EIGEN3_URL_HASH}")
-        endif()
-
         # Eigen — header-only: CMake install копіює заголовки, нічого не компілює.
         # ep_cmake_args передає toolchain/sysroot (не потрібні для header-only,
         # але залишаємо для уніфікації). BUILD_SHARED_LIBS=ON з ep_cmake_args
@@ -77,9 +68,10 @@ else()
 
         # Eigen не має залежностей від наших бібліотек
         ExternalProject_Add(eigen3_ep
-            URL             "${EIGEN3_URL}"
-            ${_eigen_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/eigen3"
+            GIT_REPOSITORY  "${EIGEN3_GIT_REPO}"
+            GIT_TAG         "${EIGEN3_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/eigen3"
             CMAKE_ARGS      ${_eigen_cmake_args}
             # Заголовковий файл як маркер встановлення для Ninja
             BUILD_BYPRODUCTS "${_eigen_hdr}"

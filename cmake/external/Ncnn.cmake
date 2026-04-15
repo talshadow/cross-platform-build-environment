@@ -11,7 +11,7 @@
 #   USE_SYSTEM_NCNN  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   NCNN_VERSION, NCNN_URL, NCNN_URL_HASH
+#   NCNN_VERSION, NCNN_GIT_REPO
 
 option(USE_SYSTEM_NCNN
     "Використовувати системну ncnn замість збірки з джерел"
@@ -20,12 +20,9 @@ option(USE_SYSTEM_NCNN
 set(NCNN_VERSION "20240410"
     CACHE STRING "Версія ncnn для збірки з джерел")
 
-set(NCNN_URL
-    "https://github.com/Tencent/ncnn/archive/refs/tags/${NCNN_VERSION}.tar.gz"
-    CACHE STRING "URL архіву ncnn")
-
-set(NCNN_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву ncnn (порожньо = не перевіряти)")
+set(NCNN_GIT_REPO
+    "https://github.com/Tencent/ncnn.git"
+    CACHE STRING "Git репозиторій ncnn")
 
 # ---------------------------------------------------------------------------
 
@@ -53,11 +50,6 @@ else()
     else()
         message(STATUS "[Ncnn] Буде зібрано з джерел (${NCNN_VERSION})")
 
-        set(_hash_arg "")
-        if(NCNN_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${NCNN_URL_HASH}")
-        endif()
-
         ep_cmake_args(_ncnn_cmake_args
             -DNCNN_BUILD_TESTS=OFF
             -DNCNN_BUILD_EXAMPLES=OFF
@@ -71,9 +63,11 @@ else()
         )
 
         ExternalProject_Add(ncnn_ep
-            URL             "${NCNN_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/ncnn"
+            GIT_REPOSITORY      "${NCNN_GIT_REPO}"
+            GIT_TAG             "${NCNN_VERSION}"
+            GIT_SHALLOW         ON
+            GIT_SUBMODULES_RECURSE ON
+            SOURCE_DIR          "${EP_SOURCES_DIR}/ncnn"
             CMAKE_ARGS      ${_ncnn_cmake_args}
             BUILD_BYPRODUCTS "${_ncnn_lib}"
             LOG_DOWNLOAD    ON

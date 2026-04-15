@@ -11,7 +11,7 @@
 #   USE_SYSTEM_BOOSTDI  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   BOOSTDI_VERSION, BOOSTDI_URL, BOOSTDI_URL_HASH
+#   BOOSTDI_VERSION, BOOSTDI_GIT_REPO
 
 option(USE_SYSTEM_BOOSTDI
     "Використовувати системну Boost.DI замість збірки з джерел"
@@ -20,12 +20,9 @@ option(USE_SYSTEM_BOOSTDI
 set(BOOSTDI_VERSION "v1.3.0"
     CACHE STRING "Версія Boost.DI (boost-ext/di) для збірки з джерел")
 
-set(BOOSTDI_URL
-    "https://github.com/boost-ext/di/archive/refs/tags/${BOOSTDI_VERSION}.tar.gz"
-    CACHE STRING "URL архіву Boost.DI")
-
-set(BOOSTDI_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву Boost.DI (порожньо = не перевіряти)")
+set(BOOSTDI_GIT_REPO
+    "https://github.com/boost-ext/di.git"
+    CACHE STRING "Git репозиторій Boost.DI")
 
 # ---------------------------------------------------------------------------
 
@@ -54,20 +51,16 @@ else()
     else()
         message(STATUS "[BoostDI] Буде встановлено з джерел (${BOOSTDI_VERSION})")
 
-        set(_hash_arg "")
-        if(BOOSTDI_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${BOOSTDI_URL_HASH}")
-        endif()
-
         ep_cmake_args(_boostdi_cmake_args
             -DBOOST_DI_OPT_BUILD_TESTS=OFF
             -DBOOST_DI_OPT_BUILD_EXAMPLES=OFF
         )
 
         ExternalProject_Add(boostdi_ep
-            URL             "${BOOSTDI_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/boostdi"
+            GIT_REPOSITORY  "${BOOSTDI_GIT_REPO}"
+            GIT_TAG         "${BOOSTDI_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/boostdi"
             CMAKE_ARGS      ${_boostdi_cmake_args}
             BUILD_BYPRODUCTS "${_boostdi_inc}/boost/di.hpp"
             LOG_DOWNLOAD    ON

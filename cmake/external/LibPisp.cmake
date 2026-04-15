@@ -22,7 +22,7 @@
 #                         OFF: зібрати через Meson ExternalProject
 #
 # Кеш-змінні:
-#   LIBPISP_VERSION, LIBPISP_URL, LIBPISP_URL_HASH
+#   LIBPISP_VERSION, LIBPISP_GIT_REPO
 
 option(USE_SYSTEM_LIBPISP
     "Використовувати системну libpisp замість збірки з джерел (рекомендовано)"
@@ -31,12 +31,9 @@ option(USE_SYSTEM_LIBPISP
 set(LIBPISP_VERSION "v1.0.7"
     CACHE STRING "Версія libpisp для збірки з джерел")
 
-set(LIBPISP_URL
-    "https://github.com/raspberrypi/libpisp/archive/refs/tags/${LIBPISP_VERSION}.tar.gz"
-    CACHE STRING "URL архіву libpisp")
-
-set(LIBPISP_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libpisp (порожньо = не перевіряти)")
+set(LIBPISP_GIT_REPO
+    "https://github.com/raspberrypi/libpisp.git"
+    CACHE STRING "Git репозиторій libpisp")
 
 # ---------------------------------------------------------------------------
 
@@ -91,11 +88,6 @@ else()
         find_program(_libpisp_ninja ninja REQUIRED
             DOC "Ninja build tool (потрібен для збірки libpisp)")
 
-        set(_hash_arg "")
-        if(LIBPISP_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${LIBPISP_URL_HASH}")
-        endif()
-
         # Генеруємо meson cross-file
         _meson_generate_cross_file(_libpisp_cross_args)
 
@@ -112,9 +104,10 @@ else()
         endif()
 
         ExternalProject_Add(libpisp_ep
-            URL             "${LIBPISP_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libpisp"
+            GIT_REPOSITORY  "${LIBPISP_GIT_REPO}"
+            GIT_TAG         "${LIBPISP_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libpisp"
             DEPENDS         ${_libpisp_ep_deps}
             CONFIGURE_COMMAND
                 env

@@ -10,9 +10,8 @@
 #                        OFF (за замовченням): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   LIBPNG_VERSION    — версія для збірки
-#   LIBPNG_URL        — URL архіву
-#   LIBPNG_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   LIBPNG_VERSION    — версія (git тег)
+#   LIBPNG_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_LIBPNG
     "Використовувати системний libpng (find_package) замість збірки з джерел"
@@ -21,12 +20,9 @@ option(USE_SYSTEM_LIBPNG
 set(LIBPNG_VERSION  "1.6.43"
     CACHE STRING "Версія libpng для збірки з джерел")
 
-set(LIBPNG_URL
-    "https://downloads.sourceforge.net/project/libpng/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.gz"
-    CACHE STRING "URL архіву libpng")
-
-set(LIBPNG_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libpng (порожньо = не перевіряти)")
+set(LIBPNG_GIT_REPO
+    "https://github.com/pnggroup/libpng.git"
+    CACHE STRING "Git репозиторій libpng")
 
 # ---------------------------------------------------------------------------
 
@@ -50,11 +46,6 @@ else()
     else()
         message(STATUS "[LibPng] Буде зібрано з джерел (версія ${LIBPNG_VERSION})")
 
-        set(_png_hash_arg "")
-        if(LIBPNG_URL_HASH)
-            set(_png_hash_arg URL_HASH "SHA256=${LIBPNG_URL_HASH}")
-        endif()
-
         ep_cmake_args(_png_cmake_args
             -DPNG_SHARED=ON
             -DPNG_STATIC=OFF
@@ -63,9 +54,10 @@ else()
         )
 
         ExternalProject_Add(libpng_ep
-            URL             "${LIBPNG_URL}"
-            ${_png_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libpng"
+            GIT_REPOSITORY  "${LIBPNG_GIT_REPO}"
+            GIT_TAG         "v${LIBPNG_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libpng"
             CMAKE_ARGS      ${_png_cmake_args}
             BUILD_BYPRODUCTS "${_png_lib}"
             LOG_DOWNLOAD    ON

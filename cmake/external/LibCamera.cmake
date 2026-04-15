@@ -19,7 +19,7 @@
 #                           OFF: зібрати через Meson ExternalProject
 #
 # Кеш-змінні:
-#   LIBCAMERA_VERSION, LIBCAMERA_URL, LIBCAMERA_URL_HASH
+#   LIBCAMERA_VERSION, LIBCAMERA_GIT_REPO
 
 option(USE_SYSTEM_LIBCAMERA
     "Використовувати системну libcamera замість збірки з джерел (рекомендовано)"
@@ -28,12 +28,9 @@ option(USE_SYSTEM_LIBCAMERA
 set(LIBCAMERA_VERSION "v0.3.2"
     CACHE STRING "Версія libcamera для збірки з джерел")
 
-set(LIBCAMERA_URL
-    "https://github.com/raspberrypi/libcamera/archive/refs/tags/${LIBCAMERA_VERSION}.tar.gz"
-    CACHE STRING "URL архіву libcamera")
-
-set(LIBCAMERA_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libcamera (порожньо = не перевіряти)")
+set(LIBCAMERA_GIT_REPO
+    "https://github.com/raspberrypi/libcamera.git"
+    CACHE STRING "Git репозиторій libcamera (Raspberry Pi форк)")
 
 # ---------------------------------------------------------------------------
 
@@ -93,11 +90,6 @@ else()
         find_program(_libcamera_ninja ninja REQUIRED
             DOC "Ninja build tool (потрібен для збірки libcamera)")
 
-        set(_hash_arg "")
-        if(LIBCAMERA_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${LIBCAMERA_URL_HASH}")
-        endif()
-
         # Генеруємо meson cross-file для крос-компіляції
         _meson_generate_cross_file(_libcamera_cross_args)
 
@@ -109,9 +101,10 @@ else()
         endif()
 
         ExternalProject_Add(libcamera_ep
-            URL             "${LIBCAMERA_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libcamera"
+            GIT_REPOSITORY  "${LIBCAMERA_GIT_REPO}"
+            GIT_TAG         "${LIBCAMERA_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libcamera"
             CONFIGURE_COMMAND
                 ${_libcamera_meson} setup
                     ${_libcamera_cross_args}

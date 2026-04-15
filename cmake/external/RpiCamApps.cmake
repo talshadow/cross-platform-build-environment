@@ -22,7 +22,7 @@
 #                            OFF: зібрати через Meson ExternalProject
 #
 # Кеш-змінні:
-#   RPICAMAPPS_VERSION, RPICAMAPPS_URL, RPICAMAPPS_URL_HASH
+#   RPICAMAPPS_VERSION, RPICAMAPPS_GIT_REPO
 
 option(USE_SYSTEM_RPICAMAPPS
     "Використовувати системну rpicam-apps замість збірки з джерел (рекомендовано)"
@@ -31,12 +31,9 @@ option(USE_SYSTEM_RPICAMAPPS
 set(RPICAMAPPS_VERSION "v1.5.1"
     CACHE STRING "Версія rpicam-apps для збірки з джерел")
 
-set(RPICAMAPPS_URL
-    "https://github.com/raspberrypi/rpicam-apps/archive/refs/tags/${RPICAMAPPS_VERSION}.tar.gz"
-    CACHE STRING "URL архіву rpicam-apps")
-
-set(RPICAMAPPS_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву rpicam-apps (порожньо = не перевіряти)")
+set(RPICAMAPPS_GIT_REPO
+    "https://github.com/raspberrypi/rpicam-apps.git"
+    CACHE STRING "Git репозиторій rpicam-apps")
 
 # ---------------------------------------------------------------------------
 
@@ -91,11 +88,6 @@ else()
         find_program(_rpicam_ninja ninja REQUIRED
             DOC "Ninja build tool (потрібен для збірки rpicam-apps)")
 
-        set(_hash_arg "")
-        if(RPICAMAPPS_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${RPICAMAPPS_URL_HASH}")
-        endif()
-
         # Генеруємо meson cross-file для крос-компіляції
         _meson_generate_cross_file(_rpicam_cross_args)
 
@@ -103,9 +95,10 @@ else()
         _ep_collect_deps(_rpicam_ep_deps libcamera_ep boost_ep)
 
         ExternalProject_Add(rpicamapps_ep
-            URL             "${RPICAMAPPS_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/rpicamapps"
+            GIT_REPOSITORY  "${RPICAMAPPS_GIT_REPO}"
+            GIT_TAG         "${RPICAMAPPS_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/rpicamapps"
             DEPENDS         ${_rpicam_ep_deps}
             CONFIGURE_COMMAND
                 env

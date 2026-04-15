@@ -10,7 +10,7 @@
 #   USE_SYSTEM_LIBIR  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   LIBIR_VERSION, LIBIR_URL, LIBIR_URL_HASH
+#   LIBIR_VERSION, LIBIR_GIT_REPO
 
 option(USE_SYSTEM_LIBIR
     "Використовувати системну libir замість збірки з джерел"
@@ -20,12 +20,9 @@ set(LIBIR_VERSION "1.0.0"
     CACHE STRING "Версія libir для збірки з джерел")
 
 # TODO: замінити на реальний URL репозиторію
-set(LIBIR_URL
+set(LIBIR_GIT_REPO
     ""
-    CACHE STRING "URL архіву libir")
-
-set(LIBIR_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libir (порожньо = не перевіряти)")
+    CACHE STRING "Git репозиторій libir")
 
 # ---------------------------------------------------------------------------
 
@@ -62,23 +59,19 @@ else()
         ep_imported_library(libir::libir "${_libir_lib}" "${_libir_inc}")
         message(STATUS "[LibIr] Знайдено .so у ${EXTERNAL_INSTALL_PREFIX}")
 
-    elseif(LIBIR_URL STREQUAL "")
-        message(WARNING "[LibIr] LIBIR_URL не задано — встановіть -DLIBIR_URL=<url> або -DUSE_SYSTEM_LIBIR=ON")
+    elseif(LIBIR_GIT_REPO STREQUAL "")
+        message(WARNING "[LibIr] LIBIR_GIT_REPO не задано — встановіть -DLIBIR_GIT_REPO=<url> або -DUSE_SYSTEM_LIBIR=ON")
 
     else()
         message(STATUS "[LibIr] Буде зібрано з джерел (${LIBIR_VERSION})")
 
-        set(_hash_arg "")
-        if(LIBIR_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${LIBIR_URL_HASH}")
-        endif()
-
         ep_cmake_args(_libir_cmake_args)
 
         ExternalProject_Add(libir_ep
-            URL             "${LIBIR_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libir"
+            GIT_REPOSITORY  "${LIBIR_GIT_REPO}"
+            GIT_TAG         "${LIBIR_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libir"
             CMAKE_ARGS      ${_libir_cmake_args}
             BUILD_BYPRODUCTS "${_libir_lib}"
             LOG_DOWNLOAD    ON

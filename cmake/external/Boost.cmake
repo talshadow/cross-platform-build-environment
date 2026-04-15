@@ -16,9 +16,8 @@
 #                       OFF (за замовченням): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   BOOST_VERSION    — версія для збірки
-#   BOOST_URL        — URL архіву
-#   BOOST_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   BOOST_VERSION    — версія (git тег без префіксу boost-)
+#   BOOST_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_BOOST
     "Використовувати системний Boost (find_package) замість збірки з джерел"
@@ -27,15 +26,9 @@ option(USE_SYSTEM_BOOST
 set(BOOST_VERSION  "1.85.0"
     CACHE STRING "Версія Boost для збірки з джерел")
 
-# Перетворюємо "1.85.0" -> "1_85_0" для URL
-string(REPLACE "." "_" _boost_ver_underscored "${BOOST_VERSION}")
-
-set(BOOST_URL
-    "https://archives.boost.io/release/${BOOST_VERSION}/source/boost_${_boost_ver_underscored}.tar.gz"
-    CACHE STRING "URL архіву Boost")
-
-set(BOOST_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву Boost (порожньо = не перевіряти)")
+set(BOOST_GIT_REPO
+    "https://github.com/boostorg/boost.git"
+    CACHE STRING "Git репозиторій Boost")
 
 # ---------------------------------------------------------------------------
 
@@ -56,11 +49,6 @@ else()
 
     else()
         message(STATUS "[Boost] Буде зібрано з джерел (версія ${BOOST_VERSION})")
-
-        set(_boost_hash_arg "")
-        if(BOOST_URL_HASH)
-            set(_boost_hash_arg URL_HASH "SHA256=${BOOST_URL_HASH}")
-        endif()
 
         # ── Генеруємо user-config.jam для b2 ──────────────────────────────
         # При крос-компіляції bootstrap.sh будує b2 host-компілятором,
@@ -103,9 +91,11 @@ else()
             "${EXTERNAL_INSTALL_PREFIX}/lib/libboost_program_options.so.${BOOST_VERSION}")
 
         ExternalProject_Add(boost_ep
-            URL              "${BOOST_URL}"
-            ${_boost_hash_arg}
-            DOWNLOAD_DIR     "${EP_SOURCES_DIR}/boost"
+            GIT_REPOSITORY      "${BOOST_GIT_REPO}"
+            GIT_TAG             "boost-${BOOST_VERSION}"
+            GIT_SHALLOW         ON
+            GIT_SUBMODULES_RECURSE ON
+            SOURCE_DIR          "${EP_SOURCES_DIR}/boost"
             # bootstrap.sh завжди виконується на HOST (будує b2)
             CONFIGURE_COMMAND <SOURCE_DIR>/bootstrap.sh
                 --prefix=${EXTERNAL_INSTALL_PREFIX}
@@ -140,4 +130,3 @@ endif()
 
 unset(_boost_inc)
 unset(_boost_lib_po)
-unset(_boost_ver_underscored)

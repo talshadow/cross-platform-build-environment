@@ -11,7 +11,7 @@
 #   USE_SYSTEM_EASYPROFILER  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   EASYPROFILER_VERSION, EASYPROFILER_URL, EASYPROFILER_URL_HASH
+#   EASYPROFILER_VERSION, EASYPROFILER_GIT_REPO
 
 option(USE_SYSTEM_EASYPROFILER
     "Використовувати системну easy_profiler замість збірки з джерел"
@@ -20,12 +20,9 @@ option(USE_SYSTEM_EASYPROFILER
 set(EASYPROFILER_VERSION "v2.1.0"
     CACHE STRING "Версія easy_profiler для збірки з джерел")
 
-set(EASYPROFILER_URL
-    "https://github.com/yse/easy_profiler/archive/refs/tags/${EASYPROFILER_VERSION}.tar.gz"
-    CACHE STRING "URL архіву easy_profiler")
-
-set(EASYPROFILER_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву easy_profiler (порожньо = не перевіряти)")
+set(EASYPROFILER_GIT_REPO
+    "https://github.com/yse/easy_profiler.git"
+    CACHE STRING "Git репозиторій easy_profiler")
 
 # ---------------------------------------------------------------------------
 
@@ -49,20 +46,16 @@ else()
     else()
         message(STATUS "[EasyProfiler] Буде зібрано з джерел (${EASYPROFILER_VERSION})")
 
-        set(_hash_arg "")
-        if(EASYPROFILER_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${EASYPROFILER_URL_HASH}")
-        endif()
-
         ep_cmake_args(_ep_cmake_args
             -DEASY_PROFILER_NO_GUI=ON
             -DEASY_PROFILER_NO_SAMPLES=ON
         )
 
         ExternalProject_Add(easyprofiler_ep
-            URL             "${EASYPROFILER_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/easyprofiler"
+            GIT_REPOSITORY  "${EASYPROFILER_GIT_REPO}"
+            GIT_TAG         "${EASYPROFILER_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/easyprofiler"
             CMAKE_ARGS      ${_ep_cmake_args}
             BUILD_BYPRODUCTS "${_ep_lib}"
             LOG_DOWNLOAD    ON

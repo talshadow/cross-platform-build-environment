@@ -17,7 +17,7 @@
 #   USE_SYSTEM_AIRSIM  — ON: find_package / OFF (default): ExternalProject
 #
 # Кеш-змінні:
-#   AIRSIM_VERSION, AIRSIM_URL, AIRSIM_URL_HASH
+#   AIRSIM_VERSION, AIRSIM_GIT_REPO
 
 option(USE_SYSTEM_AIRSIM
     "Використовувати системну AirSim замість збірки з джерел"
@@ -26,12 +26,9 @@ option(USE_SYSTEM_AIRSIM
 set(AIRSIM_VERSION "v1.8.1"
     CACHE STRING "Версія AirSim для збірки з джерел")
 
-set(AIRSIM_URL
-    "https://github.com/microsoft/AirSim/archive/refs/tags/${AIRSIM_VERSION}.tar.gz"
-    CACHE STRING "URL архіву AirSim")
-
-set(AIRSIM_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву AirSim (порожньо = не перевіряти)")
+set(AIRSIM_GIT_REPO
+    "https://github.com/microsoft/AirSim.git"
+    CACHE STRING "Git репозиторій AirSim")
 
 # ---------------------------------------------------------------------------
 
@@ -60,11 +57,6 @@ else()
     else()
         message(STATUS "[AirSim] Буде зібрано з джерел (${AIRSIM_VERSION})")
 
-        set(_hash_arg "")
-        if(AIRSIM_URL_HASH)
-            set(_hash_arg URL_HASH "SHA256=${AIRSIM_URL_HASH}")
-        endif()
-
         # AirSim передає Eigen через bundled — тому явно вказуємо наш
         set(_airsim_eigen_inc "")
         if(TARGET Eigen3::Eigen)
@@ -86,9 +78,11 @@ else()
         )
 
         ExternalProject_Add(airsim_ep
-            URL             "${AIRSIM_URL}"
-            ${_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/airsim"
+            GIT_REPOSITORY      "${AIRSIM_GIT_REPO}"
+            GIT_TAG             "${AIRSIM_VERSION}"
+            GIT_SHALLOW         ON
+            GIT_SUBMODULES_RECURSE ON
+            SOURCE_DIR          "${EP_SOURCES_DIR}/airsim"
             SOURCE_SUBDIR   "cmake"
             CMAKE_ARGS      ${_airsim_cmake_args}
             DEPENDS         ${_airsim_ep_deps}

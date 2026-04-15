@@ -15,9 +15,8 @@
 #                         OFF (за замовченням): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   OPENSSL_VERSION    — версія для збірки
-#   OPENSSL_URL        — URL архіву
-#   OPENSSL_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   OPENSSL_VERSION    — версія (git тег без префіксу openssl-)
+#   OPENSSL_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_OPENSSL
     "Використовувати системний OpenSSL (find_package) замість збірки з джерел"
@@ -26,12 +25,9 @@ option(USE_SYSTEM_OPENSSL
 set(OPENSSL_VERSION  "3.3.1"
     CACHE STRING "Версія OpenSSL для збірки з джерел")
 
-set(OPENSSL_URL
-    "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz"
-    CACHE STRING "URL архіву OpenSSL")
-
-set(OPENSSL_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву OpenSSL (порожньо = не перевіряти)")
+set(OPENSSL_GIT_REPO
+    "https://github.com/openssl/openssl.git"
+    CACHE STRING "Git репозиторій OpenSSL")
 
 # ---------------------------------------------------------------------------
 
@@ -132,15 +128,11 @@ else()
             list(APPEND _ssl_configure_cmd "--sysroot=${CMAKE_SYSROOT}")
         endif()
 
-        set(_ssl_hash_arg "")
-        if(OPENSSL_URL_HASH)
-            set(_ssl_hash_arg URL_HASH "SHA256=${OPENSSL_URL_HASH}")
-        endif()
-
         ExternalProject_Add(openssl_ep
-            URL              "${OPENSSL_URL}"
-            ${_ssl_hash_arg}
-            DOWNLOAD_DIR     "${EP_SOURCES_DIR}/openssl"
+            GIT_REPOSITORY   "${OPENSSL_GIT_REPO}"
+            GIT_TAG          "openssl-${OPENSSL_VERSION}"
+            GIT_SHALLOW      ON
+            SOURCE_DIR       "${EP_SOURCES_DIR}/openssl"
             CONFIGURE_COMMAND ${_ssl_configure_cmd}
             BUILD_COMMAND     ${_ssl_make} -j${_EP_NPROC}
             # install_sw: тільки бібліотеки/заголовки, без man-сторінок

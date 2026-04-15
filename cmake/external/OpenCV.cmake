@@ -21,11 +21,9 @@
 #   OPENCV_ENABLE_CONTRIB  — ON (за замовченням): включати opencv_contrib модулі
 #
 # Кеш-змінні:
-#   OPENCV_VERSION         — версія для збірки
-#   OPENCV_URL             — URL архіву OpenCV
-#   OPENCV_CONTRIB_URL     — URL архіву opencv_contrib
-#   OPENCV_URL_HASH        — SHA256 хеш OpenCV (порожньо = не перевіряти)
-#   OPENCV_CONTRIB_URL_HASH — SHA256 хеш contrib (порожньо = не перевіряти)
+#   OPENCV_VERSION         — версія (git тег)
+#   OPENCV_GIT_REPO        — URL git репозиторію OpenCV
+#   OPENCV_CONTRIB_GIT_REPO — URL git репозиторію opencv_contrib
 
 option(USE_SYSTEM_OPENCV
     "Використовувати системний OpenCV (find_package) замість збірки з джерел"
@@ -38,19 +36,13 @@ option(OPENCV_ENABLE_CONTRIB
 set(OPENCV_VERSION  "4.10.0"
     CACHE STRING "Версія OpenCV для збірки з джерел")
 
-set(OPENCV_URL
-    "https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VERSION}.tar.gz"
-    CACHE STRING "URL архіву OpenCV")
+set(OPENCV_GIT_REPO
+    "https://github.com/opencv/opencv.git"
+    CACHE STRING "Git репозиторій OpenCV")
 
-set(OPENCV_CONTRIB_URL
-    "https://github.com/opencv/opencv_contrib/archive/refs/tags/${OPENCV_VERSION}.tar.gz"
-    CACHE STRING "URL архіву opencv_contrib")
-
-set(OPENCV_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву OpenCV (порожньо = не перевіряти)")
-
-set(OPENCV_CONTRIB_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву opencv_contrib (порожньо = не перевіряти)")
+set(OPENCV_CONTRIB_GIT_REPO
+    "https://github.com/opencv/opencv_contrib.git"
+    CACHE STRING "Git репозиторій opencv_contrib")
 
 # ---------------------------------------------------------------------------
 
@@ -109,19 +101,14 @@ else()
     else()
         message(STATUS "[OpenCV] Буде зібрано з джерел (версія ${OPENCV_VERSION})")
 
-        # ── opencv_contrib: тільки unpack, zbírka відбувається у opencv_ep ─
-        set(_contrib_src "${CMAKE_BINARY_DIR}/_ep_src/opencv_contrib")
+        # ── opencv_contrib: тільки clone, збірка відбувається у opencv_ep ─
+        set(_contrib_src "${EP_SOURCES_DIR}/opencv_contrib")
 
         if(OPENCV_ENABLE_CONTRIB)
-            set(_contrib_hash_arg "")
-            if(OPENCV_CONTRIB_URL_HASH)
-                set(_contrib_hash_arg URL_HASH "SHA256=${OPENCV_CONTRIB_URL_HASH}")
-            endif()
-
             ExternalProject_Add(opencv_contrib_ep
-                URL              "${OPENCV_CONTRIB_URL}"
-                ${_contrib_hash_arg}
-                DOWNLOAD_DIR     "${EP_SOURCES_DIR}/opencv_contrib"
+                GIT_REPOSITORY   "${OPENCV_CONTRIB_GIT_REPO}"
+                GIT_TAG          "${OPENCV_VERSION}"
+                GIT_SHALLOW      ON
                 SOURCE_DIR       "${_contrib_src}"
                 CONFIGURE_COMMAND ""
                 BUILD_COMMAND     ""
@@ -200,12 +187,7 @@ else()
             ${_ocv_dep_args}
         )
 
-        set(_ocv_hash_arg "")
-        if(OPENCV_URL_HASH)
-            set(_ocv_hash_arg URL_HASH "SHA256=${OPENCV_URL_HASH}")
-        endif()
-
-        # Залежності: спочатку contrib (unpack), потім image libs
+        # Залежності: спочатку contrib (clone), потім image libs
         # _ep_collect_deps повертає тільки імена цілей (без "DEPENDS")
         set(_ocv_ep_depends "")
         if(OPENCV_ENABLE_CONTRIB)
@@ -221,9 +203,10 @@ else()
         endforeach()
 
         ExternalProject_Add(opencv_ep
-            URL              "${OPENCV_URL}"
-            ${_ocv_hash_arg}
-            DOWNLOAD_DIR     "${EP_SOURCES_DIR}/opencv"
+            GIT_REPOSITORY   "${OPENCV_GIT_REPO}"
+            GIT_TAG          "${OPENCV_VERSION}"
+            GIT_SHALLOW      ON
+            SOURCE_DIR       "${EP_SOURCES_DIR}/opencv"
             CMAKE_ARGS       ${_ocv_cmake_args}
             BUILD_BYPRODUCTS ${_ocv_byproducts}
             DEPENDS          ${_ocv_ep_depends}

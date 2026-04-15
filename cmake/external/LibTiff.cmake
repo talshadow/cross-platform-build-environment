@@ -11,9 +11,8 @@
 #                         OFF (за замовченням): зібрати через ExternalProject
 #
 # Кеш-змінні:
-#   LIBTIFF_VERSION    — версія для збірки
-#   LIBTIFF_URL        — URL архіву
-#   LIBTIFF_URL_HASH   — SHA256 хеш (порожньо = не перевіряти)
+#   LIBTIFF_VERSION    — версія (git тег)
+#   LIBTIFF_GIT_REPO   — URL git репозиторію
 
 option(USE_SYSTEM_LIBTIFF
     "Використовувати системний libtiff (find_package) замість збірки з джерел"
@@ -22,12 +21,9 @@ option(USE_SYSTEM_LIBTIFF
 set(LIBTIFF_VERSION  "4.6.0"
     CACHE STRING "Версія libtiff для збірки з джерел")
 
-set(LIBTIFF_URL
-    "https://download.osgeo.org/libtiff/tiff-${LIBTIFF_VERSION}.tar.gz"
-    CACHE STRING "URL архіву libtiff")
-
-set(LIBTIFF_URL_HASH ""
-    CACHE STRING "SHA256 хеш архіву libtiff (порожньо = не перевіряти)")
+set(LIBTIFF_GIT_REPO
+    "https://gitlab.com/libtiff/libtiff.git"
+    CACHE STRING "Git репозиторій libtiff (GitLab — офіційний upstream)")
 
 # ---------------------------------------------------------------------------
 
@@ -47,11 +43,6 @@ else()
 
     else()
         message(STATUS "[LibTiff] Буде зібрано з джерел (версія ${LIBTIFF_VERSION})")
-
-        set(_tiff_hash_arg "")
-        if(LIBTIFF_URL_HASH)
-            set(_tiff_hash_arg URL_HASH "SHA256=${LIBTIFF_URL_HASH}")
-        endif()
 
         # Формуємо додаткові аргументи — шляхи до вже зібраних deps
         set(_tiff_dep_args "")
@@ -90,9 +81,10 @@ else()
         _ep_collect_deps(_tiff_ep_targets libjpeg_ep libpng_ep)
 
         ExternalProject_Add(libtiff_ep
-            URL             "${LIBTIFF_URL}"
-            ${_tiff_hash_arg}
-            DOWNLOAD_DIR    "${EP_SOURCES_DIR}/libtiff"
+            GIT_REPOSITORY  "${LIBTIFF_GIT_REPO}"
+            GIT_TAG         "v${LIBTIFF_VERSION}"
+            GIT_SHALLOW     ON
+            SOURCE_DIR      "${EP_SOURCES_DIR}/libtiff"
             CMAKE_ARGS      ${_tiff_cmake_args}
             BUILD_BYPRODUCTS "${_tiff_lib}"
             DEPENDS          ${_tiff_ep_targets}
