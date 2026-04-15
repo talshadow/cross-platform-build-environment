@@ -26,7 +26,7 @@
 
 option(USE_SYSTEM_RPICAMAPPS
     "Використовувати системну rpicam-apps замість збірки з джерел (рекомендовано)"
-    ON)
+    OFF)
 
 set(RPICAMAPPS_VERSION "v1.5.1"
     CACHE STRING "Версія rpicam-apps для збірки з джерел")
@@ -83,10 +83,10 @@ else()
     else()
         message(STATUS "[RpiCamApps] Буде зібрано з джерел (${RPICAMAPPS_VERSION}) через Meson")
 
-        find_program(_rpicam_meson meson REQUIRED
-            DOC "Meson build system (потрібен для збірки rpicam-apps)")
-        find_program(_rpicam_ninja ninja REQUIRED
-            DOC "Ninja build tool (потрібен для збірки rpicam-apps)")
+        _ep_require_meson()
+        find_program(_rpicam_meson meson)
+        find_program(_rpicam_ninja ninja)
+        _ep_cmake_to_meson_buildtype(_rpicam_meson_bt)
 
         # Генеруємо meson cross-file для крос-компіляції
         _meson_generate_cross_file(_rpicam_cross_args)
@@ -102,20 +102,20 @@ else()
             DEPENDS         ${_rpicam_ep_deps}
             CONFIGURE_COMMAND
                 env
-                    "PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig"
+                    PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
                 ${_rpicam_meson} setup
                     ${_rpicam_cross_args}
-                    --prefix      "${EXTERNAL_INSTALL_PREFIX}"
-                    --libdir      "lib"
-                    --buildtype   "${CMAKE_BUILD_TYPE}"
+                    --prefix=${EXTERNAL_INSTALL_PREFIX}
+                    --libdir=lib
+                    --buildtype=${_rpicam_meson_bt}
                     -Denable_libav=disabled
                     -Denable_drm=disabled
                     -Denable_egl=disabled
                     -Denable_qt=disabled
                     -Denable_opencv=disabled
                     -Denable_tflite=disabled
-                    "<BINARY_DIR>"
-                    "<SOURCE_DIR>"
+                    <BINARY_DIR>
+                    <SOURCE_DIR>
             BUILD_COMMAND
                 ${_rpicam_ninja} -C "<BINARY_DIR>" -j${_EP_NPROC}
             INSTALL_COMMAND

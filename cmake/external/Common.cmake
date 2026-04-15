@@ -12,12 +12,15 @@
 #     _EP_NPROC                — кількість паралельних задач
 #
 #   Функції:
-#     ep_cmake_args()                 — формує CMake-аргументи для EP
-#     ep_imported_library()           — SHARED IMPORTED target
-#     ep_imported_interface()         — INTERFACE IMPORTED target (header-only)
-#     ep_imported_library_from_ep()   — SHARED IMPORTED + залежність від EP
-#     ep_imported_interface_from_ep() — INTERFACE IMPORTED + залежність від EP
-#     _ep_collect_deps()              — повертає список існуючих EP-цілей
+#     ep_cmake_args()                    — формує CMake-аргументи для EP
+#     ep_imported_library()              — SHARED IMPORTED target
+#     ep_imported_interface()            — INTERFACE IMPORTED target (header-only)
+#     ep_imported_library_from_ep()      — SHARED IMPORTED + залежність від EP
+#     ep_imported_interface_from_ep()    — INTERFACE IMPORTED + залежність від EP
+#     _ep_collect_deps()                 — повертає список існуючих EP-цілей
+#     _ep_cmake_to_meson_buildtype()     — конвертує CMAKE_BUILD_TYPE → meson --buildtype
+#     _ep_require_meson()                — перевіряє наявність meson+ninja, FATAL_ERROR якщо нема
+#     _ep_require_python_modules()       — перевіряє наявність Python3-модулів на хості
 
 cmake_minimum_required(VERSION 3.20)
 include(ExternalProject)
@@ -288,6 +291,148 @@ function(_ep_collect_deps out_var)
         endif()
     endforeach()
     set(${out_var} ${_existing} PARENT_SCOPE)
+endfunction()
+
+# ---------------------------------------------------------------------------
+# _ep_cmake_to_meson_buildtype(<out_var> [cmake_build_type])
+#
+# Перетворює CMake CMAKE_BUILD_TYPE на відповідний Meson --buildtype.
+#
+# Відображення:
+#   Debug          → debug
+#   Release        → release
+#   RelWithDebInfo → debugoptimized
+#   MinSizeRel     → minsize
+#   (інше/порожнє) → debug
+#
+# Якщо другий аргумент не переданий — використовує CMAKE_BUILD_TYPE.
+#
+# Приклад:
+#   _ep_cmake_to_meson_buildtype(_meson_bt)
+#   ExternalProject_Add(foo_ep ... --buildtype=${_meson_bt} ...)
+# ---------------------------------------------------------------------------
+function(_ep_cmake_to_meson_buildtype out_var)
+    if(ARGC GREATER 1)
+        set(_bt "${ARGV1}")
+    else()
+        set(_bt "${CMAKE_BUILD_TYPE}")
+    endif()
+
+    if(_bt STREQUAL "Release")
+        set(_meson "release")
+    elseif(_bt STREQUAL "RelWithDebInfo")
+        set(_meson "debugoptimized")
+    elseif(_bt STREQUAL "MinSizeRel")
+        set(_meson "minsize")
+    else()
+        set(_meson "debug")
+    endif()
+
+    set(${out_var} "${_meson}" PARENT_SCOPE)
+endfunction()
+
+# ---------------------------------------------------------------------------
+# _ep_require_python_modules(<module1> [module2 ...])
+#
+# Перевіряє наявність Python3-модулів на хості (потрібні як host-tools
+# під час збірки, наприклад для генерації коду — не залежності таргету).
+# При відсутності видає FATAL_ERROR з командами встановлення для
+# Ubuntu/Debian і Arch/CachyOS.
+#
+# Приклад:
+#   _ep_require_python_modules(yaml ply)
+# ---------------------------------------------------------------------------
+function(_ep_require_python_modules)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    if(NOT Python3_Interpreter_FOUND)
+        message(FATAL_ERROR
+            "[ExternalDeps] python3 не знайдено в PATH.\n"
+            "  Ubuntu/Debian : sudo apt install python3\n"
+            "  Arch/CachyOS  : sudo pacman -S python")
+    endif()
+
+    set(_missing_pkgs "")
+    set(_missing_mods "")
+    foreach(_mod ${ARGN})
+        execute_process(
+            COMMAND "${Python3_EXECUTABLE}" -c "import ${_mod}"
+            RESULT_VARIABLE _rc
+            OUTPUT_QUIET ERROR_QUIET)
+        if(NOT _rc EQUAL 0)
+            list(APPEND _missing_mods "${_mod}")
+            # Відображення python-module → пакет для кожної OS
+            if(_mod STREQUAL "yaml")
+                list(APPEND _missing_pkgs
+                    "apt:python3-yaml"
+                    "pacman:python-yaml")
+            elseif(_mod STREQUAL "ply")
+                list(APPEND _missing_pkgs
+                    "apt:python3-ply"
+                    "pacman:python-ply")
+            else()
+                list(APPEND _missing_pkgs
+                    "apt:python3-${_mod}"
+                    "pacman:python-${_mod}")
+            endif()
+        endif()
+    endforeach()
+
+    if(NOT _missing_mods)
+        return()
+    endif()
+
+    # Збираємо пакети по менеджерах
+    set(_apt_pkgs "")
+    set(_pacman_pkgs "")
+    foreach(_entry ${_missing_pkgs})
+        if(_entry MATCHES "^apt:(.+)$")
+            list(APPEND _apt_pkgs "${CMAKE_MATCH_1}")
+        elseif(_entry MATCHES "^pacman:(.+)$")
+            list(APPEND _pacman_pkgs "${CMAKE_MATCH_1}")
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES _apt_pkgs)
+    list(REMOVE_DUPLICATES _pacman_pkgs)
+    string(JOIN " " _apt_str    ${_apt_pkgs})
+    string(JOIN " " _pacman_str ${_pacman_pkgs})
+    string(JOIN " " _mods_str   ${_missing_mods})
+
+    message(FATAL_ERROR
+        "[ExternalDeps] Відсутні Python3-модулі (host-tools): ${_mods_str}\n"
+        "  Ubuntu/Debian : sudo apt install ${_apt_str}\n"
+        "  Arch/CachyOS  : sudo pacman -S ${_pacman_str}\n"
+        "Після встановлення повторіть: cmake --preset <preset>")
+endfunction()
+
+# ---------------------------------------------------------------------------
+# _ep_require_meson()
+#
+# Перевіряє наявність meson та ninja в PATH.
+# При відсутності зупиняє конфігурацію з FATAL_ERROR та підказкою
+# щодо встановлення для Ubuntu/Debian і Arch/CachyOS.
+#
+# Викликати перед ExternalProject_Add у кожному Lib*.cmake що потребує Meson.
+# ---------------------------------------------------------------------------
+function(_ep_require_meson)
+    find_program(_ep_rm_meson meson)
+    find_program(_ep_rm_ninja ninja)
+
+    set(_missing "")
+    if(NOT _ep_rm_meson)
+        list(APPEND _missing "meson")
+    endif()
+    if(NOT _ep_rm_ninja)
+        list(APPEND _missing "ninja")
+    endif()
+
+    if(_missing)
+        string(JOIN " " _missing_str ${_missing})
+        message(FATAL_ERROR
+            "[ExternalDeps] Відсутні інструменти для збірки Meson-проектів: ${_missing_str}\n"
+            "  Ubuntu/Debian : sudo apt install meson ninja-build\n"
+            "  Arch/CachyOS  : sudo pacman -S meson ninja\n"
+            "Після встановлення повторіть: cmake --preset <preset>")
+    endif()
 endfunction()
 
 # ---------------------------------------------------------------------------

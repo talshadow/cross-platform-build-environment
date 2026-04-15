@@ -9,6 +9,7 @@
 # LibTiff     <- LibJpeg, LibPng
 # OpenCV      <- LibJpeg, LibPng, LibTiff, OpenSSL
 # LibEvent    <- OpenSSL
+# LibCamera   <- LibEvent (cam утиліта)
 # LibPisp     <- LibCamera, Boost
 # RpiCamApps  <- LibCamera, Boost
 # AirSim      <- Eigen3, Rpclib
@@ -48,14 +49,14 @@ include("${_ep_dir}/GeographicLib.cmake")
 # ── Залежить від OpenSSL ─────────────────────────────────────────────────────
 include("${_ep_dir}/LibEvent.cmake")
 
-# ── Незалежна: камера (зазвичай береться з sysroot) ─────────────────────────
-# include("${_ep_dir}/LibCamera.cmake")
+# ── Незалежна: камера ────────────────────────────────────────────────────────
+include("${_ep_dir}/LibCamera.cmake")
 
 # ── Залежить від LibCamera + Boost (тільки RPi 5) ───────────────────────────
-# include("${_ep_dir}/LibPisp.cmake")
+include("${_ep_dir}/LibPisp.cmake")
 
 # ── Залежить від LibCamera + Boost ──────────────────────────────────────────
-# include("${_ep_dir}/RpiCamApps.cmake")
+include("${_ep_dir}/RpiCamApps.cmake")
 
 # ── Незалежна: rpclib (msgpack-RPC, потрібна для AirSim) ────────────────────
 include("${_ep_dir}/Rpclib.cmake")

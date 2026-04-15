@@ -23,7 +23,7 @@
 
 option(USE_SYSTEM_LIBCAMERA
     "Використовувати системну libcamera замість збірки з джерел (рекомендовано)"
-    ON)
+    OFF)
 
 set(LIBCAMERA_VERSION "v0.3.2"
     CACHE STRING "Версія libcamera для збірки з джерел")
@@ -84,11 +84,13 @@ else()
     else()
         message(STATUS "[LibCamera] Буде зібрано з джерел (${LIBCAMERA_VERSION}) через Meson")
 
-        # Перевіряємо наявність meson та ninja
-        find_program(_libcamera_meson meson REQUIRED
-            DOC "Meson build system (потрібен для збірки libcamera)")
-        find_program(_libcamera_ninja ninja REQUIRED
-            DOC "Ninja build tool (потрібен для збірки libcamera)")
+        _ep_require_meson()
+        # yaml та ply — host-tools для генератора IPA protocol (не target-залежності).
+        # Безпечні при cross-build: виконуються на хості, не потрапляють у sysroot.
+        _ep_require_python_modules(yaml ply)
+        find_program(_libcamera_meson meson)
+        find_program(_libcamera_ninja ninja)
+        _ep_cmake_to_meson_buildtype(_libcamera_meson_bt)
 
         # Генеруємо meson cross-file для крос-компіляції
         _meson_generate_cross_file(_libcamera_cross_args)
@@ -100,26 +102,32 @@ else()
             set(_libcamera_pipelines "auto")
         endif()
 
+        # cam потребує libevent — передаємо через PKG_CONFIG_PATH
+        _ep_collect_deps(_libcamera_ep_deps libevent_ep)
+
         ExternalProject_Add(libcamera_ep
             GIT_REPOSITORY  "${LIBCAMERA_GIT_REPO}"
             GIT_TAG         "${LIBCAMERA_VERSION}"
             GIT_SHALLOW     ON
             SOURCE_DIR      "${EP_SOURCES_DIR}/libcamera"
+            DEPENDS         ${_libcamera_ep_deps}
             CONFIGURE_COMMAND
+                env
+                    PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
                 ${_libcamera_meson} setup
                     ${_libcamera_cross_args}
-                    --prefix      "${EXTERNAL_INSTALL_PREFIX}"
-                    --libdir      "lib"
-                    --buildtype   "${CMAKE_BUILD_TYPE}"
-                    -Dpipelines="${_libcamera_pipelines}"
-                    -Dipas="rpi/vc4"
+                    --prefix=${EXTERNAL_INSTALL_PREFIX}
+                    --libdir=lib
+                    --buildtype=${_libcamera_meson_bt}
+                    -Dpipelines=${_libcamera_pipelines}
+                    -Dipas=rpi/vc4
                     -Dlc-compliance=disabled
-                    -Dcam=disabled
+                    -Dcam=enabled
                     -Dqcam=disabled
                     -Ddocumentation=disabled
                     -Dtest=false
-                    "<BINARY_DIR>"
-                    "<SOURCE_DIR>"
+                    <BINARY_DIR>
+                    <SOURCE_DIR>
             BUILD_COMMAND
                 ${_libcamera_ninja} -C "<BINARY_DIR>" -j${_EP_NPROC}
             INSTALL_COMMAND
@@ -138,6 +146,7 @@ else()
         unset(_libcamera_ninja)
         unset(_libcamera_cross_args)
         unset(_libcamera_pipelines)
+        unset(_libcamera_ep_deps)
     endif()
 endif()
 

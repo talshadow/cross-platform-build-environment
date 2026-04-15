@@ -26,7 +26,7 @@
 
 option(USE_SYSTEM_LIBPISP
     "Використовувати системну libpisp замість збірки з джерел (рекомендовано)"
-    ON)
+    OFF)
 
 set(LIBPISP_VERSION "v1.0.7"
     CACHE STRING "Версія libpisp для збірки з джерел")
@@ -83,10 +83,10 @@ else()
     else()
         message(STATUS "[LibPisp] Буде зібрано з джерел (${LIBPISP_VERSION}) через Meson")
 
-        find_program(_libpisp_meson meson REQUIRED
-            DOC "Meson build system (потрібен для збірки libpisp)")
-        find_program(_libpisp_ninja ninja REQUIRED
-            DOC "Ninja build tool (потрібен для збірки libpisp)")
+        _ep_require_meson()
+        find_program(_libpisp_meson meson)
+        find_program(_libpisp_ninja ninja)
+        _ep_cmake_to_meson_buildtype(_libpisp_meson_bt)
 
         # Генеруємо meson cross-file
         _meson_generate_cross_file(_libpisp_cross_args)
@@ -111,17 +111,17 @@ else()
             DEPENDS         ${_libpisp_ep_deps}
             CONFIGURE_COMMAND
                 env
-                    "PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig"
-                    "BOOST_ROOT=${EXTERNAL_INSTALL_PREFIX}"
+                    PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
+                    BOOST_ROOT=${EXTERNAL_INSTALL_PREFIX}
                 ${_libpisp_meson} setup
                     ${_libpisp_cross_args}
-                    --prefix      "${EXTERNAL_INSTALL_PREFIX}"
-                    --libdir      "lib"
-                    --buildtype   "${CMAKE_BUILD_TYPE}"
+                    --prefix=${EXTERNAL_INSTALL_PREFIX}
+                    --libdir=lib
+                    --buildtype=${_libpisp_meson_bt}
                     -Dtest=false
                     -Ddoc=disabled
-                    "<BINARY_DIR>"
-                    "<SOURCE_DIR>"
+                    <BINARY_DIR>
+                    <SOURCE_DIR>
             BUILD_COMMAND
                 ${_libpisp_ninja} -C "<BINARY_DIR>" -j${_EP_NPROC}
             INSTALL_COMMAND
