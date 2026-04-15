@@ -10,6 +10,23 @@
 #   Визначає платформу OpenSSL з CMAKE_SYSTEM_PROCESSOR.
 #   Для крос-компілятора виводить префікс з CMAKE_C_COMPILER.
 #
+# Асемблер:
+#   Оптимізації на базі асемблера увімкнені за замовчуванням (no-asm НЕ передається).
+#   Для крос-збірки (arm/aarch64): perlasm генерує asm для target-архітектури,
+#     компілюється cross-компілятором через --cross-compile-prefix.
+#   Для нативної x86_64: OpenSSL може використовувати NASM для AES-NI/SHA-NI —
+#     якщо NASM відсутній, використовується gas-backend (трохи менш оптимальний).
+#
+# Відключені небезпечні/застарілі алгоритми (як Ubuntu):
+#   no-ssl3, no-ssl3-method — SSLv3 (POODLE)
+#   no-idea                 — IDEA (патентний)
+#   no-rc5                  — RC5 (патентний)
+#   no-mdc2                 — MDC2 (патентний)
+#
+# Увімкнені розширення (як Ubuntu):
+#   enable-rfc3779 — X.509 IP/AS-number extensions
+#   enable-ktls    — kernel TLS (Linux ≥ 4.17; runtime-fallback якщо ядро не підтримує)
+#
 # Опції:
 #   USE_SYSTEM_OPENSSL  — ON: find_package в системі/sysroot
 #                         OFF (за замовченням): зібрати через ExternalProject
@@ -108,6 +125,25 @@ else()
             DOC "Make для збірки OpenSSL: make/gmake (Linux), mingw32-make (MinGW), nmake (MSVC). Ninja не підтримується.")
         message(STATUS "[OpenSSL] Make: ${_ssl_make}")
 
+        # ── NASM (тільки x86/x86_64 нативна збірка) ──────────────────────
+        # OpenSSL використовує NASM для AES-NI/SHA-NI оптимізацій на x86_64.
+        # Якщо NASM відсутній — OpenSSL автоматично перемикається на gas backend
+        # (perlasm .s), що трохи повільніше але коректно.
+        # При крос-компіляції NASM не потрібен: perlasm генерує arm/aarch64 asm,
+        # який компілюється через cross-compiler без NASM.
+        if(NOT CMAKE_CROSSCOMPILING AND _ssl_platform MATCHES "x86")
+            find_program(_ssl_nasm NAMES nasm)
+            if(_ssl_nasm)
+                message(STATUS "[OpenSSL] NASM знайдено (${_ssl_nasm}) — AES-NI/SHA-NI оптимізації увімкнено")
+            else()
+                message(STATUS "[OpenSSL] NASM не знайдено — використовується gas backend (менш оптимально).\n"
+                    "  Для AES-NI/SHA-NI оптимізацій встановіть NASM:\n"
+                    "    Ubuntu/Debian : sudo apt install nasm\n"
+                    "    Arch/CachyOS  : sudo pacman -S nasm")
+            endif()
+            unset(_ssl_nasm)
+        endif()
+
         # ── Формуємо аргументи для Configure ──────────────────────────────
         set(_ssl_configure_cmd
             <SOURCE_DIR>/Configure
@@ -117,6 +153,15 @@ else()
             shared
             no-tests
             no-docs
+            # Відключаємо застарілі/небезпечні алгоритми (як Ubuntu)
+            no-ssl3             # SSLv3 (POODLE attack)
+            no-ssl3-method      # SSLv3_method() API
+            no-idea             # IDEA cipher (патентний)
+            no-rc5              # RC5 cipher (патентний)
+            no-mdc2             # MDC2 hash (патентний)
+            # Увімкнені розширення (як Ubuntu)
+            enable-rfc3779      # X.509 IP address / AS number extensions
+            enable-ktls         # kernel TLS (Linux ≥ 4.17; safe runtime-fallback)
         )
 
         if(_ssl_cross_prefix)

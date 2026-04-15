@@ -5,7 +5,7 @@
 # https://github.com/raspberrypi/rpicam-apps
 #
 # Provides imported target:
-#   rpicam_apps::camera_app  — SHARED IMPORTED (libcamera_app.so)
+#   rpicam_apps::camera_app  — SHARED IMPORTED (rpicam_app.so)
 #
 # Залежності:
 #   - libcamera::libcamera (libcamera_ep)
@@ -28,7 +28,7 @@ option(USE_SYSTEM_RPICAMAPPS
     "Використовувати системну rpicam-apps замість збірки з джерел (рекомендовано)"
     OFF)
 
-set(RPICAMAPPS_VERSION "v1.5.1"
+set(RPICAMAPPS_VERSION "v1.9.1"
     CACHE STRING "Версія rpicam-apps для збірки з джерел")
 
 set(RPICAMAPPS_GIT_REPO
@@ -37,18 +37,18 @@ set(RPICAMAPPS_GIT_REPO
 
 # ---------------------------------------------------------------------------
 
-set(_rpicam_lib "${EXTERNAL_INSTALL_PREFIX}/lib/libcamera_app.so")
-set(_rpicam_inc "${EXTERNAL_INSTALL_PREFIX}/include/libcamera-apps")
+set(_rpicam_lib "${EXTERNAL_INSTALL_PREFIX}/lib/librpicam_app.so")
+set(_rpicam_inc "${EXTERNAL_INSTALL_PREFIX}/include/rpicam-apps")
 
 if(USE_SYSTEM_RPICAMAPPS)
     # ── Системна бібліотека / sysroot ───────────────────────────────────────
-    find_package(libcamera_app QUIET)
-    if(libcamera_app_FOUND)
+    find_package(rpicam_app QUIET)
+    if(rpicam_app_FOUND)
         message(STATUS "[RpiCamApps] Системна: rpicam_apps::camera_app")
     else()
         find_package(PkgConfig QUIET)
         if(PkgConfig_FOUND)
-            pkg_check_modules(RPICAM_APP IMPORTED_TARGET libcamera-apps)
+            pkg_check_modules(RPICAM_APP IMPORTED_TARGET rpicam-apps)
             if(RPICAM_APP_FOUND)
                 if(NOT TARGET rpicam_apps::camera_app)
                     add_library(rpicam_apps::camera_app INTERFACE IMPORTED GLOBAL)
@@ -69,11 +69,11 @@ if(USE_SYSTEM_RPICAMAPPS)
 
 else()
     # ── Алгоритм: find_package → ExternalProject_Add (Meson) ───────────────
-    find_package(libcamera_app QUIET
+    find_package(rpicam_app QUIET
         HINTS "${EXTERNAL_INSTALL_PREFIX}"
         NO_DEFAULT_PATH)
 
-    if(libcamera_app_FOUND)
+    if(rpicam_app_FOUND)
         message(STATUS "[RpiCamApps] Знайдено готову бібліотеку у ${EXTERNAL_INSTALL_PREFIX}")
 
     elseif(EXISTS "${_rpicam_lib}")

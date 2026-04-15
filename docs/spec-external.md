@@ -10,7 +10,7 @@ cmake/external/
 ├── ── Незалежні ──
 ├── LibPng.cmake        LibJpeg.cmake   OpenSSL.cmake   Boost.cmake
 ├── Eigen3.cmake        Nlohmann.cmake  BoostDI.cmake   BoostSML.cmake
-├── EasyProfiler.cmake  Ncnn.cmake      LibIr.cmake     GeographicLib.cmake
+├── EasyProfiler.cmake  Ncnn.cmake      LibFmt.cmake    LibIr.cmake     GeographicLib.cmake
 ├── Rpclib.cmake
 │
 ├── ── Залежності (порядок важливий) ──
@@ -37,7 +37,7 @@ cmake/SuperBuild.cmake  ← superbuild режим
 | Бібліотека | Target | Тип |
 |---|---|---|
 | libpng | `PNG::PNG` | `SHARED IMPORTED` |
-| libjpeg-turbo | `JPEG::JPEG` | `SHARED IMPORTED` |
+| libjpeg-turbo | `JPEG::JPEG`, `TurboJPEG::TurboJPEG` | `SHARED IMPORTED` |
 | libtiff | `TIFF::TIFF` | `SHARED IMPORTED` |
 | OpenSSL | `OpenSSL::SSL`, `OpenSSL::Crypto` | `SHARED IMPORTED` |
 | Boost | `Boost::headers`, `Boost::program_options` | `INTERFACE / SHARED` |
@@ -52,6 +52,7 @@ cmake/SuperBuild.cmake  ← superbuild режим
 | boost::sml | `boost::sml` | `INTERFACE IMPORTED` |
 | easy_profiler | `easy_profiler::easy_profiler` | `SHARED IMPORTED` |
 | ncnn | `ncnn::ncnn` | `SHARED IMPORTED` |
+| {fmt} | `fmt::fmt` | `SHARED IMPORTED` |
 | libir | `libir::libir` | `SHARED IMPORTED` |
 | rpclib | `rpclib::rpc` | `SHARED IMPORTED` |
 | AirSim | `AirSim::AirLib` | `SHARED IMPORTED` |
@@ -482,7 +483,7 @@ PhySys     ──────▶ PhySysCpp
 
 Незалежні бібліотеки (без залежностей між собою):
 `LibPng`, `LibJpeg`, `OpenSSL`, `Boost`, `Eigen3`, `GeographicLib`,
-`Nlohmann`, `BoostDI`, `BoostSML`, `EasyProfiler`, `Ncnn`, `LibIr`, `Rpclib`, `PhySys`
+`Nlohmann`, `BoostDI`, `BoostSML`, `EasyProfiler`, `Ncnn`, `LibFmt`, `LibIr`, `Rpclib`, `PhySys`
 
 Порядок `include()` у `ExternalDeps.cmake`:
 1. `Common.cmake`
@@ -497,27 +498,128 @@ PhySys     ──────▶ PhySysCpp
 
 > **Важливо:** правильний порядок збірки забезпечується двома механізмами:
 > 1. Порядок `include()` у `ExternalDeps.cmake` — гарантує що cmake-targets оголошені до використання.
-> 2. `add_dependencies()` у **тому ж** `ExternalDeps.cmake` після кожного `include()` —
->    гарантує що `ninja -jN` не запустить збірку залежної бібліотеки до завершення її залежностей.
+> 2. `ExternalProject_Add_StepDependencies(ep build ...)` у **тому ж** `ExternalDeps.cmake` після кожного `include()` —
+>    гарантує що `ninja -jN` не запустить build-крок залежної бібліотеки до завершення її залежностей.
 >
 > `ExternalDeps.cmake` є єдиним місцем де описується граф залежностей між EP.
 > Самі `Lib*.cmake` файли лише оголошують `ExternalProject_Add` без `DEPENDS`.
+>
+> **Чому `ExternalProject_Add_StepDependencies`, а не `add_dependencies`:**
+> `add_dependencies(libtiff_ep libjpeg_ep)` додає залежність тільки на рівні
+> phony-таргету `libtiff_ep` → `libjpeg_ep`. Якщо configure-stamp вже існує,
+> Ninja вільний запустити `libtiff_ep-build` одразу, без очікування завершення
+> `libjpeg_ep`. `ExternalProject_Add_StepDependencies(libtiff_ep build libjpeg_ep)`
+> інжектує order-only залежність безпосередньо в `libtiff_ep-build`, що гарантує
+> правильну серіалізацію навіть при `ninja -j$(nproc)`.
 
 ```cmake
-# ExternalDeps.cmake — include() + add_dependencies() в одному місці
+# ExternalDeps.cmake — include() + ExternalProject_Add_StepDependencies() в одному місці
 include("${_ep_dir}/LibJpeg.cmake")   # оголошує libjpeg_ep
 include("${_ep_dir}/LibPng.cmake")    # оголошує libpng_ep
 include("${_ep_dir}/LibTiff.cmake")   # оголошує libtiff_ep
 if(TARGET libtiff_ep)
     _ep_collect_deps(_deps libjpeg_ep libpng_ep)
     if(_deps)
-        add_dependencies(libtiff_ep ${_deps})
+        ExternalProject_Add_StepDependencies(libtiff_ep build ${_deps})
     endif()
 endif()
 ```
 
 `_ep_collect_deps` повертає лише ті EP-цілі що реально оголошені — безпечно
 якщо залежність використовує `USE_SYSTEM=ON` (EP-ціль не існує).
+
+---
+
+## Бібліотечно-специфічні опції
+
+### OpenSSL
+
+Зібрано з тими ж security-налаштуваннями що й Ubuntu.
+
+**Відключені небезпечні/застарілі алгоритми:**
+- `no-ssl3`, `no-ssl3-method` — SSLv3 (POODLE attack)
+- `no-idea` — IDEA cipher (патентний)
+- `no-rc5` — RC5 cipher (патентний)
+- `no-mdc2` — MDC2 hash (патентний)
+
+**Увімкнені розширення:**
+- `enable-rfc3779` — X.509 IP/AS-number extensions
+- `enable-ktls` — kernel TLS (Linux ≥ 4.17; runtime-fallback якщо ядро не підтримує)
+
+**Асемблерні оптимізації:**
+При нативній x86/x86_64 збірці виводиться інформаційне повідомлення про NASM:
+- Якщо NASM присутній — увімкнено AES-NI/SHA-NI оптимізації
+- Якщо NASM відсутній — використовується gas backend (трохи менш оптимальний),
+  рекомендується встановити: `sudo apt install nasm` або `sudo pacman -S nasm`
+
+При крос-компіляції NASM не потрібен: perlasm генерує arm/aarch64 asm через cross-compiler.
+
+---
+
+### libjpeg-turbo
+
+Збирається разом з TurboJPEG API (`WITH_TURBOJPEG=ON`).
+
+**Imported targets:**
+- `JPEG::JPEG` — стандартний JPEG API (libjpeg.so)
+- `TurboJPEG::TurboJPEG` — TurboJPEG API для швидкого кодування/декодування (libturbojpeg.so)
+
+---
+
+### libtiff
+
+Увімкнені додаткові кодеки (аналогічно Ubuntu):
+- `zstd=ON` — libzstd (сучасне стиснення, TIFF 4.x+)
+- `lzma=ON` — liblzma / XZ
+- `webp=ON` — libwebp у TIFF контейнері
+- `lerc=ON` — LERC стиснення (TIFF 4.4+)
+- `libdeflate=ON` — прискорений deflate (Ubuntu 22.04+)
+- `jbig=OFF` — вимкнено (Ubuntu не включає)
+
+Семантика `ON`: libtiff спробує знайти бібліотеку, якщо не знайде — попередить,
+але не зупинить збірку. Для крос-компіляції відповідні бібліотеки мають бути
+присутні у sysroot.
+
+---
+
+### OpenCV
+
+Стандартні комп'ютерно-зорові модули збираються завжди.
+Опційні залежності від зовнішніх бібліотек контролюються через:
+
+| Опція | За замовч. | Опис |
+|---|---|---|
+| `OPENCV_WITH_FFMPEG` | `OFF` | Підтримка FFmpeg (потребує ffmpeg dev-libs у sysroot/системі) |
+| `OPENCV_WITH_OPENCL` | `OFF` | Підтримка OpenCL (потребує OpenCL ICD loader у sysroot/системі) |
+
+```bash
+cmake --preset rpi4-release -DOPENCV_WITH_FFMPEG=ON -DRPI_SYSROOT=/srv/rpi4-sysroot
+```
+
+---
+
+### libcamera
+
+Версія: `v0.5.2+rpt20250903` (Raspberry Pi форк з підтримкою RPi ISP).
+
+**Pipeline `rpi/vc4` завжди увімкнений** — навіть при нативній x86_64 збірці.
+Причина: pipeline генерує `control_ids_rpi.yaml`, без якого `controls::rpi` namespace
+не існує і rpicam-apps не компілюється. На x86_64 pipeline збирається (pure C++),
+але не запускається без RPi hardware.
+
+Потребує host-tools: `python3-yaml` та `python3-ply` (генератор IPA protocol).
+
+---
+
+### RpiCamApps
+
+Версія: `v1.9.1`.
+Бібліотека: `librpicam_app.so`, include: `rpicam-apps/`.
+
+> **Зміна у v1.9.1:** перейменовано з `libcamera_app.so` → `librpicam_app.so`
+> та з `libcamera-apps/` → `rpicam-apps/`.
+
+**Imported target:** `rpicam_apps::camera_app`
 
 ---
 
@@ -612,7 +714,7 @@ unset(_new_inc)
 
 2. Додати `include("${_ep_dir}/LibNew.cmake")` у `ExternalDeps.cmake` у правильному місці за залежностями.
 
-3. Якщо нова бібліотека має залежності від інших EP — додати `add_dependencies()` у `ExternalDeps.cmake`
+3. Якщо нова бібліотека має залежності від інших EP — додати `ExternalProject_Add_StepDependencies()` у `ExternalDeps.cmake`
    одразу після `include()`:
 
 ```cmake
@@ -621,7 +723,7 @@ include("${_ep_dir}/LibNew.cmake")
 if(TARGET libnew_ep)
     _ep_collect_deps(_deps libother_ep)
     if(_deps)
-        add_dependencies(libnew_ep ${_deps})
+        ExternalProject_Add_StepDependencies(libnew_ep build ${_deps})
     endif()
 endif()
 ```

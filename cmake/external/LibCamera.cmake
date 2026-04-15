@@ -25,7 +25,7 @@ option(USE_SYSTEM_LIBCAMERA
     "Використовувати системну libcamera замість збірки з джерел (рекомендовано)"
     OFF)
 
-set(LIBCAMERA_VERSION "v0.3.2"
+set(LIBCAMERA_VERSION "v0.5.2+rpt20250903"
     CACHE STRING "Версія libcamera для збірки з джерел")
 
 set(LIBCAMERA_GIT_REPO
@@ -95,12 +95,11 @@ else()
         # Генеруємо meson cross-file для крос-компіляції
         _meson_generate_cross_file(_libcamera_cross_args)
 
-        # libcamera pipeline handlers — для RPi включаємо rpi/vc4
-        if(CMAKE_CROSSCOMPILING)
-            set(_libcamera_pipelines "rpi/vc4")
-        else()
-            set(_libcamera_pipelines "auto")
-        endif()
+        # libcamera pipeline handlers.
+        # Завжди включаємо rpi/vc4 — потрібен для генерації control_ids_rpi.yaml,
+        # без якого controls::rpi namespace не існує і rpicam-apps не компілюється.
+        # На x86_64 pipeline збирається (pure C++), але не запускається без хардвару.
+        set(_libcamera_pipelines "rpi/vc4")
 
         ExternalProject_Add(libcamera_ep
             GIT_REPOSITORY  "${LIBCAMERA_GIT_REPO}"

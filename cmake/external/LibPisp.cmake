@@ -114,8 +114,6 @@ else()
                     --prefix=${EXTERNAL_INSTALL_PREFIX}
                     --libdir=lib
                     --buildtype=${_libpisp_meson_bt}
-                    -Dtest=false
-                    -Ddoc=disabled
                     <BINARY_DIR>
                     <SOURCE_DIR>
             BUILD_COMMAND

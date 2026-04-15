@@ -6,6 +6,18 @@
 # Provides imported target:
 #   TIFF::TIFF  — SHARED IMPORTED
 #
+# Увімкнені кодеки (як Ubuntu libtiff6):
+#   zlib        — завжди (вбудований у libtiff)
+#   lzma/xz     — liblzma (з sysroot або системи); auto-detect
+#   zstd        — libzstd (з sysroot або системи); auto-detect
+#   webp        — libwebp (з sysroot або системи); auto-detect
+#   lerc        — liblerc (з sysroot або системи); auto-detect
+#   libdeflate  — libdeflate (з sysroot або системи); auto-detect
+#
+# Всі кодеки встановлені в ON (libtiff semantics: "спробувати знайти, попередити
+# якщо не знайдено, не падати"). Якщо бібліотека відсутня в sysroot/системі —
+# кодек буде тихо відключений з WARNING у лозі збірки.
+#
 # Опції:
 #   USE_SYSTEM_LIBTIFF  — ON: find_package в системі/sysroot
 #                         OFF (за замовченням): зібрати через ExternalProject
@@ -73,6 +85,17 @@ else()
             -Dtiff-tests=OFF
             -Dtiff-tools=OFF
             -Dtiff-contrib=OFF
+            # Кодеки стиснення — як Ubuntu libtiff6.
+            # Семантика libtiff: ON = "знайти, якщо є; попередити і пропустити якщо нема".
+            # Бібліотеки шукаються в EXTERNAL_INSTALL_PREFIX та sysroot (крос)
+            # або в системі (нативна збірка) — через ep_find_scope з ep_cmake_args.
+            -Dzstd=ON           # libzstd  — сучасне стиснення (TIFF 4.x+)
+            -Dlzma=ON           # liblzma  — XZ/LZMA стиснення
+            -Dwebp=ON           # libwebp  — WebP у TIFF (рідко, але Ubuntu має)
+            -Dlerc=ON           # liblerc  — LERC стиснення (TIFF 4.4+)
+            -Dlibdeflate=ON     # libdeflate — швидший deflate (Ubuntu 22.04+)
+            # jbig: Ubuntu відключає (-Djbig=FALSE), залишаємо OFF
+            -Djbig=OFF
             ${_tiff_dep_args}
         )
 

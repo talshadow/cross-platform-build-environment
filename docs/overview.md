@@ -55,7 +55,7 @@ SupportRaspberryPI/
 │   │   ├── Common.cmake        # Спільні утиліти ExternalProject
 │   │   ├── ExternalDeps.cmake  # Головна точка підключення залежностей
 │   │   ├── LibPng.cmake        # libpng           (PNG::PNG)
-│   │   ├── LibJpeg.cmake       # libjpeg-turbo    (JPEG::JPEG)
+│   │   ├── LibJpeg.cmake       # libjpeg-turbo    (JPEG::JPEG, TurboJPEG::TurboJPEG)
 │   │   ├── LibTiff.cmake       # libtiff           (TIFF::TIFF)
 │   │   ├── OpenSSL.cmake       # OpenSSL           (OpenSSL::SSL, ::Crypto)
 │   │   ├── Boost.cmake         # Boost             (Boost::headers, ::program_options)
@@ -70,6 +70,7 @@ SupportRaspberryPI/
 │   │   ├── BoostSML.cmake      # boost-ext/sml     (boost::sml) header-only
 │   │   ├── EasyProfiler.cmake  # easy_profiler     (easy_profiler::easy_profiler)
 │   │   ├── Ncnn.cmake          # ncnn              (ncnn::ncnn)
+│   │   ├── LibFmt.cmake        # {fmt}             (fmt::fmt)
 │   │   ├── LibIr.cmake         # libir             (libir::libir)
 │   │   ├── Rpclib.cmake        # rpclib            (rpclib::rpc)
 │   │   ├── AirSim.cmake        # AirSim client     (AirSim::AirLib) — shared

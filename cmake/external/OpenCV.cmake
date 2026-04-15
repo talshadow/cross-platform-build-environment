@@ -19,6 +19,12 @@
 #   USE_SYSTEM_OPENCV      — ON: find_package в системі/sysroot
 #                            OFF (за замовченням): зібрати через ExternalProject
 #   OPENCV_ENABLE_CONTRIB  — ON (за замовченням): включати opencv_contrib модулі
+#   OPENCV_WITH_FFMPEG     — OFF (за замовченням): увімкнути підтримку FFmpeg
+#                            Потребує libavcodec/avformat/avutil/swscale-dev в sysroot.
+#                            При крос-збірці: pkg-config повинен бачити ffmpeg з sysroot.
+#   OPENCV_WITH_OPENCL     — OFF (за замовченням): увімкнути підтримку OpenCL
+#                            Потребує OpenCL ICD loader (libOpenCL.so) і заголовків
+#                            (opencl-headers) в sysroot або на хості.
 #
 # Кеш-змінні:
 #   OPENCV_VERSION         — версія (git тег)
@@ -32,6 +38,14 @@ option(USE_SYSTEM_OPENCV
 option(OPENCV_ENABLE_CONTRIB
     "Включати opencv_contrib модулі при збірці"
     ON)
+
+option(OPENCV_WITH_FFMPEG
+    "Збирати OpenCV з підтримкою FFmpeg (потребує ffmpeg dev-libs в sysroot/системі)"
+    OFF)
+
+option(OPENCV_WITH_OPENCL
+    "Збирати OpenCV з підтримкою OpenCL (потребує OpenCL ICD loader в sysroot/системі)"
+    OFF)
 
 set(OPENCV_VERSION  "4.10.0"
     CACHE STRING "Версія OpenCV для збірки з джерел")
@@ -179,11 +193,12 @@ else()
             -DWITH_GTK=OFF
             -DWITH_QT=OFF
             -DWITH_CUDA=OFF
-            -DWITH_OPENCL=OFF
             -DWITH_IPP=OFF
             -DWITH_TBB=ON
             -DOPENCV_GENERATE_PKGCONFIG=ON
-            -DWITH_FFMPEG=OFF
+            # Керовані опції (OFF за замовченням; вмикаються через OPENCV_WITH_*)
+            -DWITH_FFMPEG=${OPENCV_WITH_FFMPEG}
+            -DWITH_OPENCL=${OPENCV_WITH_OPENCL}
             ${_ocv_contrib_arg}
             ${_ocv_dep_args}
         )

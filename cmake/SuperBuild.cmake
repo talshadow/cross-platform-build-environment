@@ -56,6 +56,7 @@ set(_sb_all_lib_eps
     boostsml_ep
     easyprofiler_ep
     ncnn_ep
+    libfmt_ep
     libir_ep
     airsim_ep
     physfs_ep
@@ -114,7 +115,7 @@ endif()
 # Передаємо прапори USE_SYSTEM_* (щоб основний проєкт не намагався будувати зайве)
 foreach(_lib IN ITEMS LIBPNG LIBJPEG LIBTIFF BOOST OPENSSL OPENCV GEOGRAPHICLIB EIGEN3
                       LIBEVENT LIBCAMERA LIBPISP NLOHMANN BOOSTDI BOOSTSML
-                      EASYPROFILER NCNN LIBIR AIRSIM PHYSYS PHYSYSCPP RPICAMAPPS)
+                      EASYPROFILER NCNN LIBFMT LIBIR AIRSIM PHYSYS PHYSYSCPP RPICAMAPPS)
     if(DEFINED USE_SYSTEM_${_lib})
         list(APPEND _sb_main_cmake_args
             -DUSE_SYSTEM_${_lib}=${USE_SYSTEM_${_lib}})

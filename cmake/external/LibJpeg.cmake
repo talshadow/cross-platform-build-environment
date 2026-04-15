@@ -3,8 +3,14 @@
 # Збирає або знаходить libjpeg (використовує libjpeg-turbo — швидший завдяки
 # SIMD-оптимізаціям, повністю сумісний з libjpeg API).
 #
-# Provides imported target:
-#   JPEG::JPEG  — SHARED IMPORTED
+# Provides imported targets:
+#   JPEG::JPEG            — SHARED IMPORTED  (libjpeg.so, ABI libjpeg 8)
+#   TurboJPEG::TurboJPEG  — SHARED IMPORTED  (libturbojpeg.so.0, власний C API)
+#
+# TurboJPEG::TurboJPEG надає вищопродуктивний API (#include <turbojpeg.h>):
+#   tj3Compress*, tj3Decompress*, tj3Transform* тощо.
+#   Потрібен якщо будь-яка залежність (#include <turbojpeg.h>) або код використовує
+#   TJ API безпосередньо. Ubuntu завжди будує обидві бібліотеки.
 #
 # Опції:
 #   USE_SYSTEM_LIBJPEG  — ON: find_package в системі/sysroot
@@ -27,8 +33,9 @@ set(LIBJPEG_GIT_REPO
 
 # ---------------------------------------------------------------------------
 
-set(_jpeg_lib "${EXTERNAL_INSTALL_PREFIX}/lib/libjpeg.so")
-set(_jpeg_inc "${EXTERNAL_INSTALL_PREFIX}/include")
+set(_jpeg_lib       "${EXTERNAL_INSTALL_PREFIX}/lib/libjpeg.so")
+set(_turbojpeg_lib  "${EXTERNAL_INSTALL_PREFIX}/lib/libturbojpeg.so")
+set(_jpeg_inc       "${EXTERNAL_INSTALL_PREFIX}/include")
 
 if(USE_SYSTEM_LIBJPEG)
     # ── Системна бібліотека / sysroot ───────────────────────────────────────
@@ -49,8 +56,9 @@ else()
             -DENABLE_STATIC=OFF
             # WITH_JPEG8=ON: ABI-сумісність з libjpeg 8 (потрібно для OpenCV)
             -DWITH_JPEG8=ON
-            # TurboJPEG C API — окремий від libjpeg, тут не потрібен
-            -DWITH_TURBOJPEG=OFF
+            # WITH_TURBOJPEG=ON: будуємо libturbojpeg.so.0 як Ubuntu
+            # Надає TurboJPEG C API (#include <turbojpeg.h>): tj3Compress* тощо
+            -DWITH_TURBOJPEG=ON
             -DWITH_JAVA=OFF
             -DWITH_MAN=OFF
         )
@@ -61,15 +69,19 @@ else()
             GIT_SHALLOW     ON
             SOURCE_DIR      "${EP_SOURCES_DIR}/libjpeg"
             CMAKE_ARGS      ${_jpeg_cmake_args}
-            BUILD_BYPRODUCTS "${_jpeg_lib}"
+            BUILD_BYPRODUCTS
+                "${_jpeg_lib}"
+                "${_turbojpeg_lib}"
             LOG_DOWNLOAD    ON
             LOG_BUILD       ON
             LOG_INSTALL     ON
         )
 
-        ep_imported_library_from_ep(JPEG::JPEG libjpeg_ep "${_jpeg_lib}" "${_jpeg_inc}")
+        ep_imported_library_from_ep(JPEG::JPEG           libjpeg_ep "${_jpeg_lib}"      "${_jpeg_inc}")
+        ep_imported_library_from_ep(TurboJPEG::TurboJPEG libjpeg_ep "${_turbojpeg_lib}" "${_jpeg_inc}")
     endif()
 endif()
 
 unset(_jpeg_lib)
+unset(_turbojpeg_lib)
 unset(_jpeg_inc)
