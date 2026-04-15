@@ -495,24 +495,24 @@ PhySys     ──────▶ PhySysCpp
 8. `AirSim.cmake` (залежить від Eigen3 + Rpclib)
 9. `PhySys.cmake`, `PhySysCpp.cmake`
 
-> **Важливо:** порядок `include()` НЕ є достатньою умовою для правильного порядку збірки.
-> Кожен `ExternalProject_Add` повинен мати **явний** `DEPENDS` на EP-цілі своїх залежностей.
-> Порядок include() лише гарантує що cmake-targets оголошені до використання;
-> без `DEPENDS` паралельний `ninja`/`make -jN` може запустити збірку залежних бібліотек
-> до завершення їхніх залежностей.
+> **Важливо:** правильний порядок збірки забезпечується двома речами разом:
+> 1. Порядок `include()` у `ExternalDeps.cmake` — гарантує що cmake-targets оголошені до використання.
+> 2. Явний `DEPENDS` у `ExternalProject_Add` всередині **того самого** `Lib*.cmake` —
+>    гарантує що `ninja -jN` не запустить збірку до завершення залежностей.
+>
+> Обидва механізми живуть разом: `ExternalDeps.cmake` викликає `include(LibTiff.cmake)`,
+> а `LibTiff.cmake` сам містить і `ExternalProject_Add(libtiff_ep DEPENDS ...)`.
 
 ```cmake
-# Приклад: LibTiff залежить від LibJpeg та LibPng
+# ExternalDeps.cmake — лише порядок include()
+include("${_ep_dir}/LibJpeg.cmake")   # оголошує libjpeg_ep
+include("${_ep_dir}/LibPng.cmake")    # оголошує libpng_ep
+include("${_ep_dir}/LibTiff.cmake")   # всередині: DEPENDS libjpeg_ep libpng_ep
+
+# LibTiff.cmake — DEPENDS у тому ж файлі де живе ExternalProject_Add
 _ep_collect_deps(_tiff_deps libjpeg_ep libpng_ep)
 ExternalProject_Add(libtiff_ep
     DEPENDS ${_tiff_deps}
-    ...
-)
-
-# Приклад: AirSim залежить від Eigen3 та Rpclib
-_ep_collect_deps(_airsim_deps eigen3_ep rpclib_ep)
-ExternalProject_Add(airsim_ep
-    DEPENDS ${_airsim_deps}
     ...
 )
 ```
