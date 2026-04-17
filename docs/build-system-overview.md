@@ -81,12 +81,12 @@ SupportRaspberryPI/
 │   └── SuperBuild.cmake        # Superbuild режим (всі deps + main як EP)
 │
 ├── scripts/
-│   ├── install-toolchains.sh   # Встановити крос-компілятори (apt / pacman)
+│   ├── build-system-install-toolchains.sh   # Встановити крос-компілятори (apt / pacman)
 │   ├── build-system-get-sysroot-rpi.sh      # Отримати sysroot для RPi (Docker/образ/SSH)
 │   ├── build-system-get-sysroot-yocto.sh    # Встановити/витягнути Yocto SDK sysroot
 │   ├── build-system-sync-sysroot.sh         # Синхронізувати sysroot з живого RPi
-│   ├── build.sh                # Обгортка над cmake --preset
-│   └── deploy.sh               # Розгортання по SSH
+│   ├── build-system-build.sh                # Обгортка над cmake --preset
+│   └── build-system-deploy.sh               # Розгортання по SSH
 │
 ├── src/                        # Вихідний код проєкту
 ├── tests/                      # Тести (GTest, ctest)
@@ -109,7 +109,7 @@ SupportRaspberryPI/
 ```
 Host (Ubuntu / Arch / CachyOS)
 │
-├─ [1] install-toolchains.sh
+├─ [1] build-system-install-toolchains.sh
 │      apt install gcc-aarch64-linux-gnu ...     # Ubuntu
 │      pacman -S aarch64-linux-gnu-gcc ...       # Arch / CachyOS
 │
@@ -131,7 +131,7 @@ Host (Ubuntu / Arch / CachyOS)
 ├─ [4] cmake --build --preset rpi4-release
 │      → build/rpi4-release/bin/<ваш_бінарник>  (ELF AArch64)
 │
-└─ [5] deploy.sh --preset rpi4-release --host 192.168.1.100
+└─ [5] build-system-deploy.sh --preset rpi4-release --host 192.168.1.100
        rsync → RPi → запуск
 ```
 

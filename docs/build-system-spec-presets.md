@@ -45,7 +45,7 @@ base  (hidden)
 | `buildtype` | `debug`, `release`, `relwithdebinfo` |
 | `variant` | `asan`, `tsan`, (майбутні: `lto`, `coverage`) |
 
-**Приклади:** `rpi4-release`, `native-debug`, `native-asan`, `clang-tsan`, `clang18-release`.
+**Приклади:** `rpi4-release`, `native-debug`, `native-asan`, `clang-tsan`, `clang-release`.
 
 `clang<ver>` — версійний Clang (напр. `clang18`); `clang` без версії — системний.
 

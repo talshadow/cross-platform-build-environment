@@ -100,9 +100,9 @@ source /opt/poky/<version>/environment-setup-<target>-poky-linux
 # Список доступних пресетів
 cmake --list-presets
 
-# Конфігурація + збірка (нативна, Ubuntu 24.04)
-cmake --preset ubuntu2404-debug
-cmake --build --preset ubuntu2404-debug
+# Конфігурація + збірка (нативна, Debug)
+cmake --preset native-debug
+cmake --build --preset native-debug
 
 # Крос-компіляція для RPi 4 без sysroot
 cmake --preset rpi4-release
@@ -113,12 +113,12 @@ cmake --preset rpi4-release -DRPI_SYSROOT=/srv/rpi4-sysroot
 cmake --build --preset rpi4-release
 ```
 
-### Через скрипт build.sh
+### Через скрипт build-system-build.sh
 
 ```bash
 ./scripts/build-system-build.sh rpi4-release
 ./scripts/build-system-build.sh rpi4-release -DRPI_SYSROOT=/srv/rpi4-sysroot
-./scripts/build-system-build.sh ubuntu2404-asan
+./scripts/build-system-build.sh native-asan
 ```
 
 ### Через cmake напряму (без presets)
@@ -167,17 +167,17 @@ cmake --build build/rpi4-release
 
 ## 5. Тести
 
-Тести запускаються лише для нативних пресетів (`ubuntu2004-*`, `ubuntu2404-*`).
+Тести запускаються лише для нативних пресетів (`native-*`, `clang-*`).
 
 ```bash
 # Всі тести
-ctest --preset ubuntu2404-debug
+ctest --preset native-debug
 
 # Один тест за ім'ям
-ctest --preset ubuntu2404-debug -R my_test_name
+ctest --preset native-debug -R my_test_name
 
 # З виводом при помилці
-ctest --preset ubuntu2404-debug --output-on-failure
+ctest --preset native-debug --output-on-failure
 ```
 
 ---
