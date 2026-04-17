@@ -627,6 +627,25 @@ function(_meson_generate_cross_file out_var)
     #   Тому -I розміщується у ОКРЕМОМУ cross-файлі (meson-cross-paths.ini), який meson
     #   обробляє незалежно і результат мержить. Meson merges arrays from multiple --cross-file.
     # - c_link_args/cpp_link_args: --sysroot + -L (обидва флаги передаються коректно для лінкера).
+    # Конвертуємо EP_EXTRA_CFLAGS/LDFLAGS (пробіл-розділені) → рядок meson-масиву
+    # Приклад: "-mcpu=cortex-a72 -O2" → "'-mcpu=cortex-a72', '-O2'"
+    set(_mc_extra_cflags_str "")
+    set(_mc_extra_ldflags_str "")
+    if(EP_EXTRA_CFLAGS)
+        separate_arguments(_mc_extra_cflags_list UNIX_COMMAND "${EP_EXTRA_CFLAGS}")
+        foreach(_f IN LISTS _mc_extra_cflags_list)
+            string(APPEND _mc_extra_cflags_str ", '${_f}'")
+        endforeach()
+        unset(_mc_extra_cflags_list)
+    endif()
+    if(EP_EXTRA_LDFLAGS)
+        separate_arguments(_mc_extra_ldflags_list UNIX_COMMAND "${EP_EXTRA_LDFLAGS}")
+        foreach(_f IN LISTS _mc_extra_ldflags_list)
+            string(APPEND _mc_extra_ldflags_str ", '${_f}'")
+        endforeach()
+        unset(_mc_extra_ldflags_list)
+    endif()
+
     if(CMAKE_SYSROOT)
         string(APPEND _mc_builtin_options_section
             "c_args = ['--sysroot=${CMAKE_SYSROOT}']\n"
@@ -635,10 +654,10 @@ function(_meson_generate_cross_file out_var)
             "cpp_link_args = ['--sysroot=${CMAKE_SYSROOT}', '-L${EXTERNAL_INSTALL_PREFIX}/lib']\n")
     else()
         string(APPEND _mc_builtin_options_section
-            "c_args = ['-I${EXTERNAL_INSTALL_PREFIX}/include']\n"
-            "cpp_args = ['-I${EXTERNAL_INSTALL_PREFIX}/include']\n"
-            "c_link_args = ['-L${EXTERNAL_INSTALL_PREFIX}/lib']\n"
-            "cpp_link_args = ['-L${EXTERNAL_INSTALL_PREFIX}/lib']\n")
+            "c_args = ['-I${EXTERNAL_INSTALL_PREFIX}/include'${_mc_extra_cflags_str}]\n"
+            "cpp_args = ['-I${EXTERNAL_INSTALL_PREFIX}/include'${_mc_extra_cflags_str}]\n"
+            "c_link_args = ['-L${EXTERNAL_INSTALL_PREFIX}/lib'${_mc_extra_ldflags_str}]\n"
+            "cpp_link_args = ['-L${EXTERNAL_INSTALL_PREFIX}/lib'${_mc_extra_ldflags_str}]\n")
     endif()
 
     set(_cross_file "${CMAKE_BINARY_DIR}/_ep_cfg/meson-cross.ini")
@@ -677,13 +696,14 @@ endian = 'little'
         set(_cross_paths_file "${CMAKE_BINARY_DIR}/_ep_cfg/meson-cross-paths.ini")
 
         # c_args: --sysroot обов'язковий (інакше GCC використовує вбудований sysroot CT-NG)
-        # + наші артефакти -I
-        set(_mcp_c_args "'--sysroot=${CMAKE_SYSROOT}', '-I${EXTERNAL_INSTALL_PREFIX}/include'")
+        # + наші артефакти -I + toolchain-специфічні прапори (EP_EXTRA_CFLAGS)
+        set(_mcp_c_args "'--sysroot=${CMAKE_SYSROOT}', '-I${EXTERNAL_INSTALL_PREFIX}/include'${_mc_extra_cflags_str}")
         # c_link_args: --sysroot + наші артефакти -L + -rpath-link для DT_NEEDED
         # GNU ld не використовує -L для DT_NEEDED scanning → потрібен -rpath-link
         # для нашого prefix щоб лінкер знаходив libtiff.so.6, libpng.so тощо.
+        # + toolchain-специфічні лінкер прапори (EP_EXTRA_LDFLAGS)
         set(_mcp_link_args
-            "'--sysroot=${CMAKE_SYSROOT}', '-L${EXTERNAL_INSTALL_PREFIX}/lib', '-Wl,-rpath-link,${EXTERNAL_INSTALL_PREFIX}/lib'")
+            "'--sysroot=${CMAKE_SYSROOT}', '-L${EXTERNAL_INSTALL_PREFIX}/lib', '-Wl,-rpath-link,${EXTERNAL_INSTALL_PREFIX}/lib'${_mc_extra_ldflags_str}")
 
         # CT-NG toolchain: коли multiarch-триплет sysroot відрізняється від
         # toolchain prefix, потрібні додаткові include/lib шляхи.
@@ -735,5 +755,7 @@ cpp_link_args = [${_mcp_link_args}]
         set(MESON_CROSS_LINK_ARGS "" PARENT_SCOPE)
     endif()
 
+    unset(_mc_extra_cflags_str)
+    unset(_mc_extra_ldflags_str)
     set(${out_var} ${_cross_args} PARENT_SCOPE)
 endfunction()

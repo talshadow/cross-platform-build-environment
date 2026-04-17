@@ -11,12 +11,6 @@
 #   - libcamera::libcamera (libcamera_ep)
 #   - Boost::headers / boost_ep (опційно, для деяких post-processing stages)
 #
-# Примітка щодо libexif:
-#   Sysroot містить libexif.so.12 (рантайм), але без заголовків і .pc файлу.
-#   jpeg.cpp патчується при збірці скриптом patches/rpicamapps-libexif-optional.py:
-#   libexif стає умовним через __has_include/HAVE_LIBEXIF.
-#   Якщо заголовки присутні — EXIF metadata зберігається. Інакше — звичайний JPEG.
-#
 # Примітки:
 #   - Meson-based збірка. Потребує meson та ninja в PATH хоста.
 #   - USE_SYSTEM_RPICAMAPPS=ON (за замовч.) — взяти з sysroot/системи.
@@ -92,11 +86,6 @@ else()
         _ep_require_meson()
         find_program(_rpicam_meson meson)
         find_program(_rpicam_ninja ninja)
-        find_package(Python3 QUIET COMPONENTS Interpreter)
-        if(NOT Python3_Interpreter_FOUND)
-            message(FATAL_ERROR "[RpiCamApps] python3 не знайдено — потрібен для патчу jpeg.cpp.\n"
-                "  sudo apt install python3")
-        endif()
         _ep_cmake_to_meson_buildtype(_rpicam_meson_bt)
 
         # Генеруємо meson cross-file для крос-компіляції
@@ -107,12 +96,6 @@ else()
             GIT_TAG         "${RPICAMAPPS_VERSION}"
             GIT_SHALLOW     ON
             SOURCE_DIR      "${EP_SOURCES_DIR}/rpicamapps"
-            # Патч jpeg.cpp: libexif стає умовним через __has_include/HAVE_LIBEXIF.
-            # Детальніше: cmake/external/patches/rpicamapps-libexif-optional.py
-            PATCH_COMMAND
-                ${Python3_EXECUTABLE}
-                    "${CMAKE_CURRENT_LIST_DIR}/patches/rpicamapps-libexif-optional.py"
-                    "${EP_SOURCES_DIR}/rpicamapps"
             CONFIGURE_COMMAND
                 env
                     PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
@@ -152,7 +135,6 @@ else()
         unset(_rpicam_meson)
         unset(_rpicam_ninja)
         unset(_rpicam_cross_args)
-        unset(_rpicam_patch_script)
     endif()
 endif()
 

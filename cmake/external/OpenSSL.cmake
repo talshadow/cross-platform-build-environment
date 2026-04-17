@@ -136,9 +136,22 @@ else()
         # make не знайде його.  Prepend директорію компілятора до PATH для всіх
         # кроків збірки OpenSSL.  Якщо вже є в PATH — дублікат нешкідливий.
         get_filename_component(_ssl_cc_dir "${CMAKE_C_COMPILER}" DIRECTORY)
+
+        # Збираємо env-змінні: PATH є обов'язковим, решта — з toolchain.
+        # EP_EXTRA_CFLAGS/LDFLAGS задаються toolchain-файлом (напр. RaspberryPi4.cmake)
+        # і містять arch + optimization прапори для поточного CMAKE_BUILD_TYPE.
+        # OpenSSL не є CMake-проєктом, тому не читає CMAKE_C_FLAGS_*_INIT.
+        set(_ssl_env_vars "PATH=${_ssl_cc_dir}:$ENV{PATH}")
+        if(EP_EXTRA_CFLAGS)
+            list(APPEND _ssl_env_vars "CFLAGS=${EP_EXTRA_CFLAGS}")
+            list(APPEND _ssl_env_vars "CXXFLAGS=${EP_EXTRA_CFLAGS}")
+        endif()
+        if(EP_EXTRA_LDFLAGS)
+            list(APPEND _ssl_env_vars "LDFLAGS=${EP_EXTRA_LDFLAGS}")
+        endif()
         # "--" явно розділяє список env-змінних від команди, що запускається.
-        # Це запобігає неоднозначності якщо шлях компілятора починається з "-".
-        set(_ssl_env ${CMAKE_COMMAND} -E env "PATH=${_ssl_cc_dir}:$ENV{PATH}" --)
+        set(_ssl_env ${CMAKE_COMMAND} -E env ${_ssl_env_vars} --)
+        unset(_ssl_env_vars)
 
         # ── NASM (тільки x86/x86_64 нативна збірка) ──────────────────────
         # OpenSSL використовує NASM для AES-NI/SHA-NI оптимізацій на x86_64.
@@ -209,6 +222,7 @@ else()
             GIT_REPOSITORY   "${OPENSSL_GIT_REPO}"
             GIT_TAG          "openssl-${OPENSSL_VERSION}"
             GIT_SHALLOW      ON
+            GIT_SUBMODULES   ""
             SOURCE_DIR       "${EP_SOURCES_DIR}/openssl"
             CONFIGURE_COMMAND ${_ssl_env} ${_ssl_configure_cmd}
             BUILD_COMMAND     ${_ssl_env} ${_ssl_make} -j${_EP_NPROC}

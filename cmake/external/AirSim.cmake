@@ -84,45 +84,45 @@ else()
             -DAIRSIM_ROOT=${EP_SOURCES_DIR}/airsim
         )
 
-        ExternalProject_Add(airsim_ep
-            GIT_REPOSITORY      "${AIRSIM_GIT_REPO}"
-            GIT_TAG             "${AIRSIM_VERSION}"
-            GIT_SUBMODULES_RECURSE ON
-            SOURCE_DIR          "${EP_SOURCES_DIR}/airsim"
-            # Після клонування:
-            # 1. Симлінкуємо вихідники rpclib у місце, де AirSim їх шукає.
-            #    AirSim будує rpclib через add_subdirectory — не через find_package.
-            # 2. Патчимо IncludeEigen() у CommonSetup.cmake: AirSim хардкодить
-            #    шлях до bundled eigen3 (AirLib/deps/eigen3), якого немає в repo.
-            #    Замінюємо на наш EXTERNAL_INSTALL_PREFIX/include/eigen3.
-            PATCH_COMMAND
-                ${CMAKE_COMMAND} -E make_directory
-                    "${EP_SOURCES_DIR}/airsim/external/rpclib"
-                COMMAND ${CMAKE_COMMAND} -E rm -f
-                    "${EP_SOURCES_DIR}/airsim/external/rpclib/rpclib-2.3.0"
-                COMMAND ${CMAKE_COMMAND} -E create_symlink
-                    "${EP_SOURCES_DIR}/rpclib"
-                    "${EP_SOURCES_DIR}/airsim/external/rpclib/rpclib-2.3.0"
-                COMMAND sed -i
-                    "s|include_directories(.*deps/eigen3.*)|include_directories(${_airsim_eigen_inc})|g"
-                    "${EP_SOURCES_DIR}/airsim/cmake/cmake-modules/CommonSetup.cmake"
-                # AirLib хардкодить STATIC — замінюємо на SHARED.
-                # MavLinkCom/rpclib лишаються STATIC; компілюються з -fPIC
-                # (CommonSetup встановлює CMAKE_POSITION_INDEPENDENT_CODE ON),
-                # тому линкуються у libAirLib.so без проблем.
-                COMMAND sed -i
-                    "s|add_library(\${PROJECT_NAME} STATIC|add_library(\${PROJECT_NAME} SHARED|g"
-                    "${EP_SOURCES_DIR}/airsim/cmake/AirLib/CMakeLists.txt"
+    ExternalProject_Add(airsim_ep
+        GIT_REPOSITORY      "${AIRSIM_GIT_REPO}"
+        GIT_TAG             "${AIRSIM_VERSION}"
+        GIT_SUBMODULES_RECURSE ON
+        SOURCE_DIR          "${EP_SOURCES_DIR}/airsim"
+        # Після клонування:
+        # 1. Симлінкуємо вихідники rpclib у місце, де AirSim їх шукає.
+        #    AirSim будує rpclib через add_subdirectory — не через find_package.
+        # 2. Патчимо IncludeEigen() у CommonSetup.cmake: AirSim хардкодить
+        #    шлях до bundled eigen3 (AirLib/deps/eigen3), якого немає в repo.
+        #    Замінюємо на наш EXTERNAL_INSTALL_PREFIX/include/eigen3.
+        PATCH_COMMAND
+        ${CMAKE_COMMAND} -E make_directory
+        "${EP_SOURCES_DIR}/airsim/external/rpclib"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+        "${EP_SOURCES_DIR}/airsim/external/rpclib/rpclib-2.3.0"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+        "${EP_SOURCES_DIR}/rpclib"
+        "${EP_SOURCES_DIR}/airsim/external/rpclib/rpclib-2.3.0"
+        COMMAND sed -i
+        "s|include_directories(.*deps/eigen3.*)|include_directories(${_airsim_eigen_inc})|g"
+        "${EP_SOURCES_DIR}/airsim/cmake/cmake-modules/CommonSetup.cmake"
+        # AirLib хардкодить STATIC — замінюємо на SHARED.
+        # MavLinkCom/rpclib лишаються STATIC; компілюються з -fPIC
+        # (CommonSetup встановлює CMAKE_POSITION_INDEPENDENT_CODE ON),
+        # тому линкуються у libAirLib.so без проблем.
+        COMMAND sed -i
+        "s|add_library(\${PROJECT_NAME} STATIC|add_library(\${PROJECT_NAME} SHARED|g"
+            "${EP_SOURCES_DIR}/airsim/cmake/AirLib/CMakeLists.txt"
             SOURCE_SUBDIR   "cmake"
             CMAKE_ARGS      ${_airsim_cmake_args}
             # AirSim не має install() — копіюємо вручну
             INSTALL_COMMAND
-                ${CMAKE_COMMAND} -E copy
-                    "<BINARY_DIR>/output/lib/libAirLib.so"
-                    "${_airsim_lib}"
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    "${EP_SOURCES_DIR}/airsim/AirLib/include"
-                    "${_airsim_inc}"
+            ${CMAKE_COMMAND} -E copy
+            "<BINARY_DIR>/output/lib/libAirLib.so"
+            "${_airsim_lib}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${EP_SOURCES_DIR}/airsim/AirLib/include"
+            "${_airsim_inc}"
             BUILD_BYPRODUCTS "${_airsim_lib}"
             LOG_DOWNLOAD    ON
             LOG_CONFIGURE   ON
@@ -130,11 +130,11 @@ else()
             LOG_INSTALL     ON
         )
 
-        ep_imported_library_from_ep(AirSim::AirLib airsim_ep "${_airsim_lib}" "${_airsim_inc}")
+    ep_imported_library_from_ep(AirSim::AirLib airsim_ep "${_airsim_lib}" "${_airsim_inc}")
 
-        unset(_airsim_eigen_inc)
-        unset(_airsim_ep_deps)
-    endif()
+    unset(_airsim_eigen_inc)
+    unset(_airsim_ep_deps)
+endif()
 endif()
 
 unset(_airsim_lib)

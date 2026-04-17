@@ -55,12 +55,39 @@ else()
     else()
         message(STATUS "[GeographicLib] Буде зібрано з джерел (${GEOGRAPHICLIB_VERSION})")
 
+        # Debian/RPi OS sysroot не має libm.so symlink (є тільки libm.so.6 + libm.a).
+        # GCC при -lm вибирає libm.a (немає libm.so) → статичні long double функції
+        # тягнуть __frexpl/__ldexpl тощо як undefined (glibc-internal, відсутні у .so).
+        # Symlink libm.so → libm.so.6 у нашому prefix знаходиться першим через
+        # -L${EXTERNAL_INSTALL_PREFIX}/lib, змушуючи лінкер взяти динамічну бібліотеку.
+        if(CMAKE_CROSSCOMPILING AND CMAKE_SYSROOT
+                AND NOT EXISTS "${EXTERNAL_INSTALL_PREFIX}/lib/libm.so")
+            file(MAKE_DIRECTORY "${EXTERNAL_INSTALL_PREFIX}/lib")
+            file(GLOB _libm_so6_paths
+                "${CMAKE_SYSROOT}/lib/*/libm.so.6"
+                "${CMAKE_SYSROOT}/usr/lib/*/libm.so.6"
+                "${CMAKE_SYSROOT}/lib/libm.so.6")
+            if(_libm_so6_paths)
+                list(GET _libm_so6_paths 0 _libm_so6)
+                file(CREATE_LINK "${_libm_so6}" "${EXTERNAL_INSTALL_PREFIX}/lib/libm.so" SYMBOLIC)
+                message(STATUS "[GeographicLib] libm.so → ${_libm_so6}")
+            endif()
+            unset(_libm_so6_paths)
+            unset(_libm_so6)
+        endif()
+
         ep_cmake_args(_geolib_cmake_args
             # GeographicLib не має обов'язкових зовнішніх залежностей.
             # BUILD_SHARED_LIBS=ON вже передається ep_cmake_args.
             -DBUILD_DOCUMENTATION=OFF
             -DBUILD_EXAMPLES=OFF
             -DBUILD_MANPAGES=OFF
+            # GCC 12 хибне спрацювання у TransverseMercator.cpp при -O2;
+            # GeographicLib 2.x додає -Werror → збірка падає.
+            # CMAKE_CXX_FLAGS_<Config> йде після COMPILE_OPTIONS у compile команді,
+            # тому -Wno-maybe-uninitialized перекриває -Wall з GeographicLib CMakeLists.
+            "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -Wno-maybe-uninitialized"
+            "-DCMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE} -Wno-maybe-uninitialized"
         )
 
         # GeographicLib не залежить від жодної з наших external бібліотек

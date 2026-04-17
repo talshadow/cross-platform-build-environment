@@ -89,14 +89,75 @@ else()
 endif()
 unset(_RPI4_CC_VERSIONED)
 
-# --- CPU-специфічні прапори -----------------------------------------------
-# -mcpu=cortex-a72  — Cortex-A72 (BCM2711), ARMv8-A + CRC + Crypto
-# +crc              — апаратний CRC32 (вже включено в cortex-a72)
-# +simd             — Advanced SIMD (NEON для AArch64)
-set(_RPI4_CPU_FLAGS "-mcpu=cortex-a72+crc+simd")
+# --- Оптимізаційні прапори для Raspberry Pi 4 (Cortex-A72) ---
 
-set(CMAKE_C_FLAGS_INIT   "${_RPI4_CPU_FLAGS}" CACHE INTERNAL "")
-set(CMAKE_CXX_FLAGS_INIT "${_RPI4_CPU_FLAGS}" CACHE INTERNAL "")
+# Архітектура: BCM2711, Cortex-A72, ARMv8-A
+# Примітка: -mfloat-abi не застосовується для AArch64 (float через FPU завжди)
+set(_ARCH_FLAGS "-mcpu=cortex-a72 -march=armv8-a+crc+simd")
+
+# Векторизація: NEON auto-vectorization з динамічним cost model
+set(_VECT_FLAGS "-ftree-vectorize -fsimd-cost-model=dynamic")
+
+# Математика: точність IEEE 754 (критично для OpenCV та геодезичних обчислень)
+set(_MATH_FLAGS "-fno-unsafe-math-optimizations -fno-finite-math-only -fno-math-errno")
+
+# Базові прапори — в усі конфігурації
+set(_BASE_FLAGS "${_ARCH_FLAGS} ${_VECT_FLAGS} ${_MATH_FLAGS}")
+
+# LTO: паралельна оптимізація по всіх ядрах (Release/RelWithDebInfo)
+set(_LTO_FLAGS "-flto=auto -fno-fat-lto-objects")
+
+# Оптимізації циклів та вирівнювання функцій (Release/RelWithDebInfo)
+set(_LOOP_FLAGS "-falign-functions=16 -floop-nest-optimize -ftree-loop-distribution")
+
+# --- CMAKE_*_INIT для CMake-based збірок ---
+# Читаються CMake до кешу; автоматично передаються EP суб-збіркам через
+# -DCMAKE_TOOLCHAIN_FILE.
+set(CMAKE_C_FLAGS_INIT   "${_BASE_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_CXX_FLAGS_INIT "${_BASE_FLAGS}" CACHE INTERNAL "")
+
+set(CMAKE_C_FLAGS_RELEASE_INIT           "-O2 -DNDEBUG -s ${_LOOP_FLAGS} ${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_CXX_FLAGS_RELEASE_INIT         "-O2 -DNDEBUG -s ${_LOOP_FLAGS} ${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT    "${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASE_INIT "${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_MODULE_LINKER_FLAGS_RELEASE_INIT "${_LTO_FLAGS}" CACHE INTERNAL "")
+
+set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT         "-O2 -g -DNDEBUG ${_LOOP_FLAGS} ${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT       "-O2 -g -DNDEBUG ${_LOOP_FLAGS} ${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT    "${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO_INIT "${_LTO_FLAGS}" CACHE INTERNAL "")
+set(CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO_INIT "${_LTO_FLAGS}" CACHE INTERNAL "")
+
+set(CMAKE_C_FLAGS_DEBUG_INIT   "-O0 -g -DDEBUG" CACHE INTERNAL "")
+set(CMAKE_CXX_FLAGS_DEBUG_INIT "-O0 -g -DDEBUG" CACHE INTERNAL "")
+
+# --- Прапори для non-CMake збірок (OpenSSL make, Meson) ---
+# EP_EXTRA_CFLAGS / EP_EXTRA_LDFLAGS: читаються з OpenSSL.cmake (env CFLAGS/LDFLAGS)
+# та Common.cmake (_meson_generate_cross_file → c_args/cpp_args у cross-файлі).
+# Містять: базові + per-type прапори відповідно до CMAKE_BUILD_TYPE.
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(_EP_TYPE_CFLAGS  "-O2 -DNDEBUG -s ${_LOOP_FLAGS} ${_LTO_FLAGS}")
+    set(_EP_TYPE_LDFLAGS "${_LTO_FLAGS}")
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    set(_EP_TYPE_CFLAGS  "-O2 -g -DNDEBUG ${_LOOP_FLAGS} ${_LTO_FLAGS}")
+    set(_EP_TYPE_LDFLAGS "${_LTO_FLAGS}")
+else()
+    set(_EP_TYPE_CFLAGS  "-O0 -g -DDEBUG")
+    set(_EP_TYPE_LDFLAGS "")
+endif()
+set(EP_EXTRA_CFLAGS  "${_BASE_FLAGS} ${_EP_TYPE_CFLAGS}"  CACHE INTERNAL
+    "C/CXX прапори для non-cmake EP збірок (OpenSSL, Meson)")
+set(EP_EXTRA_LDFLAGS "${_EP_TYPE_LDFLAGS}"                CACHE INTERNAL
+    "Лінкер прапори для non-cmake EP збірок (LTO тощо)")
+
+unset(_ARCH_FLAGS)
+unset(_VECT_FLAGS)
+unset(_MATH_FLAGS)
+unset(_BASE_FLAGS)
+unset(_LTO_FLAGS)
+unset(_LOOP_FLAGS)
+unset(_EP_TYPE_CFLAGS)
+unset(_EP_TYPE_LDFLAGS)
 
 # --- Sysroot ---------------------------------------------------------------
 set(RPI_SYSROOT "" CACHE PATH
@@ -157,13 +218,10 @@ if(RPI_SYSROOT)
     # Debian sysroot aarch64-linux-gnu).  Коли вони збігаються (стандартний
     # Ubuntu cross-compiler), GCC вже знає ці шляхи автоматично.
     if(NOT _SYSROOT_MULTIARCH STREQUAL RPI4_TOOLCHAIN_PREFIX)
-        # -B: GCC-driver знаходить startup-файли (crt1.o, crti.o)
-        # -isystem: multiarch include-директорія sysroot (bits/wordsize.h тощо).
-        # CT-NG з триплетом aarch64-unknown-linux-gnu не знає про
-        # /usr/include/aarch64-linux-gnu/ у sysroot автоматично.
-        set(_multiarch_extra
-            " -B${_MULTIARCH_LIB} -B${_MULTIARCH_USR}"
-            " -isystem${RPI_SYSROOT}/usr/include/${_SYSROOT_MULTIARCH}")
+        # -B: GCC-driver знаходить startup-файли (crt1.o, crti.o).
+        # CT-NG з триплетом aarch64-unknown-linux-gnu не знає де шукати
+        # crt1.o у Debian sysroot — вказуємо явно.
+        set(_multiarch_extra " -B${_MULTIARCH_LIB} -B${_MULTIARCH_USR}")
         string(CONCAT _multiarch_extra ${_multiarch_extra})
         foreach(_flags_var CMAKE_C_FLAGS_INIT CMAKE_CXX_FLAGS_INIT)
             set(${_flags_var}
@@ -180,45 +238,49 @@ if(RPI_SYSROOT)
             "Multiarch triple sysroot (відмінний від toolchain prefix)")
     endif()
 
+    # Ubuntu 24.04 встановлює libc6-dev-arm64-cross з glibc 2.39 хедерами до
+    # /usr/aarch64-linux-gnu/include — цей шлях GCC шукає ПЕРЕД sysroot-хедерами
+    # у своїх вбудованих include-шляхах.  Результат: код компілюється з glibc 2.39
+    # символами (__isoc23_strtol, __ldexp тощо), яких немає у старому sysroot.
+    # -isystem, вказані на командному рядку, шукаються ДО вбудованих system-шляхів,
+    # тому sysroot-хедери отримують пріоритет над host cross-include.
+    foreach(_flags_var CMAKE_C_FLAGS_INIT CMAKE_CXX_FLAGS_INIT)
+        set(${_flags_var}
+            "${${_flags_var}} -isystem${RPI_SYSROOT}/usr/include/${_SYSROOT_MULTIARCH} -isystem${RPI_SYSROOT}/usr/include"
+            CACHE INTERNAL "")
+    endforeach()
+
     unset(_MULTIARCH_LIB)
     unset(_MULTIARCH_USR)
 
-    # Коли host cross-compiler новіший за GCC у sysroot (напр. Arch GCC 15 +
-    # RPi OS sysroot з GCC 12/glibc 2.36), його libstdc++ потребує символів
-    # GLIBC_2.38+, яких немає у sysroot.  Використовуємо -B щоб GCC шукав
-    # libstdc++ / libgcc_s у відповідному каталозі GCC із самого sysroot.
+    # Host cross-compiler libstdc++ може посилатись на символи GLIBC новіші
+    # за ті що є у sysroot (напр. Ubuntu 24.04 gcc-12 потребує GLIBC_2.38,
+    # але RPi OS sysroot має лише GLIBC_2.36; Arch GCC 15 + sysroot GCC 12 —
+    # аналогічна ситуація).  Перенаправляємо linker на libstdc++/libgcc_s із
+    # самого sysroot через -L.
     #
-    # УВАГА: -B також перенаправляє GCC-internal headers (arm_neon.h тощо) на
-    # версію з sysroot, яка несумісна з builtins host compiler.
-    # Виправлення: отримуємо include-dir host GCC і додаємо його через -I
-    # (шукається РАНІШЕ ніж -B include dir), щоб arm_neon.h host GCC мав пріоритет.
+    # Чому -L, а не -B:
+    #   -B перенаправляє всі GCC-інструменти (cc1plus, collect2 тощо) на
+    #   директорію sysroot, де вони є ARM64-бінарниками — виконання падає з
+    #   "Exec format error".  -L лише додає шлях до бібліотек у лінкері;
+    #   GCC-інструменти не зачіпаються.  Пошук бібліотек у -L виконується
+    #   раніше ніж GCC автоматично додає свою внутрішню директорію
+    #   (/usr/lib/gcc-cross/…), тому sysroot libstdc++ отримує пріоритет.
     file(GLOB _SYSROOT_GCC_DIRS
         "${RPI_SYSROOT}/usr/lib/gcc/${_SYSROOT_MULTIARCH}/[0-9]*")
     if(_SYSROOT_GCC_DIRS)
         list(SORT _SYSROOT_GCC_DIRS ORDER DESCENDING)
         list(GET _SYSROOT_GCC_DIRS 0 _SYSROOT_GCC_DIR)
 
-        # Отримуємо власний include-dir host cross-compiler
-        execute_process(
-            COMMAND "${CMAKE_C_COMPILER}" -print-file-name=include
-            OUTPUT_VARIABLE _HOST_GCC_INCLUDE
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ERROR_QUIET)
-
-        foreach(_flags_var CMAKE_C_FLAGS_INIT CMAKE_CXX_FLAGS_INIT)
-            set(_extra "")
-            # -I host include: пріоритет над -B sysroot include для arm_neon.h тощо
-            if(_HOST_GCC_INCLUDE AND IS_DIRECTORY "${_HOST_GCC_INCLUDE}")
-                string(APPEND _extra " -I${_HOST_GCC_INCLUDE}")
-            endif()
+        foreach(_flags_var CMAKE_EXE_LINKER_FLAGS_INIT
+                           CMAKE_SHARED_LINKER_FLAGS_INIT
+                           CMAKE_MODULE_LINKER_FLAGS_INIT)
             set(${_flags_var}
-                "${${_flags_var}} -B${_SYSROOT_GCC_DIR}${_extra}"
+                "${${_flags_var}} -L${_SYSROOT_GCC_DIR}"
                 CACHE INTERNAL "")
         endforeach()
 
-        unset(_HOST_GCC_INCLUDE)
         unset(_SYSROOT_GCC_DIR)
-        unset(_extra)
     endif()
     unset(_SYSROOT_GCC_DIRS)
     unset(_SYSROOT_MULTIARCH)

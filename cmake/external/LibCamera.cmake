@@ -110,20 +110,23 @@ else()
             set(_overlay_cpp_args "${MESON_CROSS_C_ARGS}, '-Wno-error=array-bounds'")
             set(_overlay_link_args "${MESON_CROSS_LINK_ARGS}")
             file(WRITE "${_libcamera_overlay_file}"
-"[built-in options]
-cpp_args = [${_overlay_cpp_args}]
-c_args = [${MESON_CROSS_C_ARGS}]
-c_link_args = [${_overlay_link_args}]
-cpp_link_args = [${_overlay_link_args}]
-")
+                "[built-in options]
+                cpp_args = [${_overlay_cpp_args}]
+                c_args = [${MESON_CROSS_C_ARGS}]
+                c_link_args = [${_overlay_link_args}]
+                cpp_link_args = [${_overlay_link_args}]
+                ")
             unset(_overlay_cpp_args)
             unset(_overlay_link_args)
         else()
-            # Нативна збірка: тільки libcamera-специфічний прапор
+            # Нативна збірка: libcamera-специфічний прапор + include нашого prefix.
+            # Workaround: apps/common/meson.build додає event_loop.cpp коли libevent
+            # знайдено, але не оголошує libevent як dep apps_lib — тому -I не
+            # потрапляє в команду компіляції автоматично.
             file(WRITE "${_libcamera_overlay_file}"
-"[built-in options]
-cpp_args = ['-Wno-error=array-bounds']
-")
+                "[built-in options]
+                cpp_args = ['-Wno-error=array-bounds', '-I${EXTERNAL_INSTALL_PREFIX}/include']
+                ")
         endif()
         # При нативній збірці використовуємо --native-file щоб не активувати
         # cross-compilation mode у meson (--cross-file завжди його вмикає).
@@ -145,27 +148,27 @@ cpp_args = ['-Wno-error=array-bounds']
             GIT_SHALLOW     ON
             SOURCE_DIR      "${EP_SOURCES_DIR}/libcamera"
             CONFIGURE_COMMAND
-                env
-                    PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
-                ${_libcamera_meson} setup
-                    --reconfigure
-                    ${_libcamera_cross_args}
-                    --prefix=${EXTERNAL_INSTALL_PREFIX}
-                    --libdir=lib
-                    --buildtype=${_libcamera_meson_bt}
-                    -Dpipelines=${_libcamera_pipelines}
-                    -Dipas=rpi/vc4
-                    -Dlc-compliance=disabled
-                    -Dcam=enabled
-                    -Dqcam=disabled
-                    -Ddocumentation=disabled
-                    -Dtest=false
-                    <BINARY_DIR>
-                    <SOURCE_DIR>
+            env
+            PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
+            ${_libcamera_meson} setup
+            --reconfigure
+            ${_libcamera_cross_args}
+            --prefix=${EXTERNAL_INSTALL_PREFIX}
+            --libdir=lib
+            --buildtype=${_libcamera_meson_bt}
+            -Dpipelines=${_libcamera_pipelines}
+            -Dipas=rpi/vc4
+            -Dlc-compliance=disabled
+            -Dcam=enabled
+            -Dqcam=disabled
+            -Ddocumentation=disabled
+            -Dtest=false
+            <BINARY_DIR>
+            <SOURCE_DIR>
             BUILD_COMMAND
-                ${_libcamera_ninja} -C "<BINARY_DIR>" -j${_EP_NPROC}
+            ${_libcamera_ninja} -C "<BINARY_DIR>" -j${_EP_NPROC}
             INSTALL_COMMAND
-                ${_libcamera_ninja} -C "<BINARY_DIR>" install
+            ${_libcamera_ninja} -C "<BINARY_DIR>" install
             BUILD_BYPRODUCTS "${_libcamera_lib}"
             LOG_DOWNLOAD    ON
             LOG_CONFIGURE   ON
@@ -173,17 +176,17 @@ cpp_args = ['-Wno-error=array-bounds']
             LOG_INSTALL     ON
         )
 
-        ep_imported_library_from_ep(
-            libcamera::libcamera libcamera_ep "${_libcamera_lib}" "${_libcamera_inc}")
+    ep_imported_library_from_ep(
+        libcamera::libcamera libcamera_ep "${_libcamera_lib}" "${_libcamera_inc}")
 
-        ep_prestamp_git(libcamera_ep "${EP_SOURCES_DIR}/libcamera" "${LIBCAMERA_VERSION}")
+    ep_prestamp_git(libcamera_ep "${EP_SOURCES_DIR}/libcamera" "${LIBCAMERA_VERSION}")
 
-        unset(_libcamera_meson)
-        unset(_libcamera_ninja)
-        unset(_libcamera_cross_args)
-        unset(_libcamera_overlay_file)
-        unset(_libcamera_pipelines)
-    endif()
+    unset(_libcamera_meson)
+    unset(_libcamera_ninja)
+    unset(_libcamera_cross_args)
+    unset(_libcamera_overlay_file)
+    unset(_libcamera_pipelines)
+endif()
 endif()
 
 unset(_libcamera_lib)

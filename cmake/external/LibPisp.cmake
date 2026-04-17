@@ -115,6 +115,7 @@ else()
                     --prefix=${EXTERNAL_INSTALL_PREFIX}
                     --libdir=lib
                     --buildtype=${_libpisp_meson_bt}
+                    -Dcpp_args=-Wno-unused-parameter
                     <BINARY_DIR>
                     <SOURCE_DIR>
             BUILD_COMMAND
