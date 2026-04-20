@@ -34,13 +34,13 @@ function(declare_cmake_enum VAR_NAME DEFAULT DOC)
     # STRINGS — для випадаючого списку в cmake-gui / ccmake
     set_property(CACHE ${VAR_NAME} PROPERTY STRINGS ${_allowed})
 
-    # ENUM_OPTS — власна властивість для валідації
-    set_property(CACHE ${VAR_NAME} PROPERTY ENUM_OPTS "${_allowed}")
+    # ENUM_OPTS_<VAR> — глобальна властивість для валідації
+    set_property(GLOBAL PROPERTY ENUM_OPTS_${VAR_NAME} "${_allowed}")
 endfunction()
 
 # ---------------------------------------------------------------------------
 function(validate_cmake_enum VAR_NAME)
-    get_property(_allowed CACHE ${VAR_NAME} PROPERTY ENUM_OPTS)
+    get_property(_allowed GLOBAL PROPERTY ENUM_OPTS_${VAR_NAME})
 
     if(NOT _allowed)
         message(FATAL_ERROR "[validate_cmake_enum] Змінна '${VAR_NAME}' не оголошена через declare_cmake_enum")
