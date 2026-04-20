@@ -8,7 +8,7 @@
 #   git_get_commit_hash(MY_HASH)         # → "a1b2c3d" або "unknown"
 #
 # git_get_version(<OUT_VAR> [FALLBACK <version>])
-#   OUT_VAR  — змінна, куди записується версія у форматі W.X.Y.Z
+#   OUT_VAR  — змінна, куди записується версія у форматі NNN.NNN.NNN.NNN
 #   FALLBACK — версія за замовчуванням, якщо git недоступний або тег не знайдено
 #              (за замовчуванням "0.0.0")
 #
@@ -60,12 +60,12 @@ function(git_get_version OUT_VAR)
         return()
     endif()
 
-    # Видаляємо префікс "v" якщо є, залишаємо лише W.X.Y.Z
+    # Видаляємо префікс "v" якщо є, залишаємо лише NNN.NNN.NNN.NNN
     string(REGEX REPLACE "^[vV]" "" _GV_VERSION "${_GV_RAW}")
 
-    # Перевіряємо формат W.X.Y.Z
+    # Перевіряємо формат NNN.NNN.NNN.NNN
     if(NOT _GV_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")
-        message(WARNING "GitVersion: тег '${_GV_RAW}' не відповідає формату W.X.Y.Z, "
+        message(WARNING "GitVersion: тег '${_GV_RAW}' не відповідає формату NNN.NNN.NNN.NNN, "
                         "використовується FALLBACK=${_GV_FALLBACK}")
         set(${OUT_VAR} "${_GV_FALLBACK}" PARENT_SCOPE)
         return()
