@@ -89,24 +89,30 @@ endfunction()
 # ---------------------------------------------------------------------------
 # cross_detect_platform
 #
-# Визначає цільову платформу і виставляє кешові змінні:
+# Визначає кінцеву платформу і виставляє кешові змінні:
 #
-#   PLATFORM_NAME          — рядок: "rpi-cross" | "rpi-native" | "yocto-cross"
-#                                   | "native-arm" | "x86_64" | "native-<proc>"
+#   PLATFORM_NAME          — конкретна назва: "RPi4" | "RPi5" | "RPi3" | ...
+#                                              "Yocto" | "Ubuntu" | "Debian"
+#                                              | "Linux-aarch64" | "Linux-<proc>"
 #   PLATFORM_CROSS_COMPILE — BOOL: крос-компіляція (хост ≠ ціль)
 #   PLATFORM_RPI           — BOOL: ціль Raspberry Pi (крос або нативна збірка на RPi)
 #   PLATFORM_YOCTO         — BOOL: ціль Yocto Linux
 #   PLATFORM_ARM           — BOOL: ARM-процесор (aarch64 або arm32)
 #   PLATFORM_X86_64        — BOOL: x86_64-процесор
 #
-# Логіка визначення:
-#   CMAKE_CROSSCOMPILING=TRUE + RPI_SYSROOT або toolchain=RaspberryPi* → rpi-cross
-#   CMAKE_CROSSCOMPILING=TRUE + YOCTO_SDK_SYSROOT або toolchain=Yocto  → yocto-cross
-#   CMAKE_CROSSCOMPILING=FALSE + aarch64/arm + /proc/device-tree/model  → rpi-native або native-arm
-#   CMAKE_CROSSCOMPILING=FALSE + x86_64                                 → x86_64
+# Логіка визначення PLATFORM_NAME:
+#   Крос: ім'я береться з toolchain файлу:
+#     RaspberryPi4.cmake → "RPi4",  RaspberryPi5.cmake → "RPi5"  тощо
+#     Yocto.cmake        → "Yocto"
+#   Нативна ARM: читається /proc/device-tree/model
+#     "Raspberry Pi 4 *" → "RPi4",  "Raspberry Pi 5 *" → "RPi5"  тощо
+#     інший ARM          → "Linux-<proc>"
+#   Нативна x86_64: читається /etc/os-release
+#     Ubuntu → "Ubuntu",  Debian → "Debian",  інше → "Linux-x86_64"
 #
 # Використання:
 #   cross_detect_platform()
+#   message(STATUS "Target: ${PLATFORM_NAME}")
 #   if(PLATFORM_RPI) ... endif()
 # ---------------------------------------------------------------------------
 function(cross_detect_platform)
@@ -115,40 +121,62 @@ function(cross_detect_platform)
     set(_yocto FALSE)
     set(_arm   FALSE)
     set(_x86   FALSE)
-    set(_name  "unknown")
+    set(_name  "Unknown")
 
     if(CMAKE_CROSSCOMPILING)
         set(_cross TRUE)
-        if(DEFINED RPI_SYSROOT OR CMAKE_TOOLCHAIN_FILE MATCHES "RaspberryPi")
+        get_filename_component(_tc "${CMAKE_TOOLCHAIN_FILE}" NAME_WE)
+
+        if(_tc MATCHES "RaspberryPi([0-9]+)")
             set(_rpi  TRUE)
             set(_arm  TRUE)
-            set(_name "rpi-cross")
-        elseif(DEFINED YOCTO_SDK_SYSROOT OR CMAKE_TOOLCHAIN_FILE MATCHES "Yocto")
+            set(_name "RPi${CMAKE_MATCH_1}")
+        elseif(_tc MATCHES "Yocto")
             set(_yocto TRUE)
-            set(_name  "yocto-cross")
+            set(_name  "Yocto")
         else()
-            set(_name "cross-${CMAKE_SYSTEM_PROCESSOR}")
+            set(_name "${_tc}")
         endif()
+
     else()
         if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|armv[6-8]|^arm")
             set(_arm TRUE)
-            set(_name "native-arm")
             if(EXISTS "/proc/device-tree/model")
                 file(READ "/proc/device-tree/model" _model)
-                if(_model MATCHES "Raspberry Pi")
+                if(_model MATCHES "Raspberry Pi ([0-9]+)")
                     set(_rpi  TRUE)
-                    set(_name "rpi-native")
+                    set(_name "RPi${CMAKE_MATCH_1}")
+                elseif(_model MATCHES "Raspberry Pi")
+                    set(_rpi  TRUE)
+                    set(_name "RPi")
+                else()
+                    set(_name "Linux-${CMAKE_SYSTEM_PROCESSOR}")
                 endif()
+            else()
+                set(_name "Linux-${CMAKE_SYSTEM_PROCESSOR}")
             endif()
+
         elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-            set(_x86  TRUE)
-            set(_name "x86_64")
+            set(_x86 TRUE)
+            if(EXISTS "/etc/os-release")
+                file(READ "/etc/os-release" _os)
+                if(_os MATCHES "NAME=\"Ubuntu\"")
+                    set(_name "Ubuntu")
+                elseif(_os MATCHES "NAME=\"Debian")
+                    set(_name "Debian")
+                else()
+                    set(_name "Linux-x86_64")
+                endif()
+            else()
+                set(_name "Linux-x86_64")
+            endif()
+
         else()
-            set(_name "native-${CMAKE_SYSTEM_PROCESSOR}")
+            set(_name "Linux-${CMAKE_SYSTEM_PROCESSOR}")
         endif()
     endif()
 
-    set(PLATFORM_NAME          "${_name}"  CACHE STRING "Назва платформи" FORCE)
+    set(PLATFORM_NAME          "${_name}"  CACHE STRING "Назва кінцевої платформи" FORCE)
     set(PLATFORM_CROSS_COMPILE  ${_cross}  CACHE BOOL "Крос-компіляція (хост ≠ ціль)" FORCE)
     set(PLATFORM_RPI            ${_rpi}    CACHE BOOL "Ціль — Raspberry Pi" FORCE)
     set(PLATFORM_YOCTO          ${_yocto}  CACHE BOOL "Ціль — Yocto Linux" FORCE)
