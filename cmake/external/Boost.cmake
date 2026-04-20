@@ -29,7 +29,7 @@ option(BOOST_USE_GIT
     "Завантажувати Boost через git clone (OFF = архів з GitHub Releases)"
     OFF)
 
-set(BOOST_VERSION  "1.85.0"
+set(BOOST_VERSION  "1.90.0"
     CACHE STRING "Версія Boost для збірки з джерел")
 
 set(BOOST_GIT_REPO

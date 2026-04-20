@@ -61,8 +61,10 @@ if(RPI_SYSROOT)
     set(CMAKE_FIND_ROOT_PATH "${RPI_SYSROOT}")
     cross_toolchain_setup_sysroot()
 else()
-    message(STATUS
-        "[RaspberryPi1] Збірка без sysroot. "
-        "Для повної підтримки задайте -DRPI_SYSROOT=<path>")
+    if(CMAKE_CROSSCOMPILING)
+        message(FATAL_ERROR
+            "[RaspberryPi1] RPI_SYSROOT не задано. "
+            "Для крос-компіляції задайте -DRPI_SYSROOT=<path>")
+    endif()
     cross_toolchain_no_sysroot()
 endif()

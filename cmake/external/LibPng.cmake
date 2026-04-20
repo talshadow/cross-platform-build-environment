@@ -57,6 +57,16 @@ else()
             -DPNG_TOOLS=OFF
         )
 
+        if(TARGET zlib_ep)
+            # Zlib збирається як EP — передаємо явні шляхи і вимикаємо системний пошук
+            list(APPEND _png_cmake_args
+                "-DZLIB_LIBRARY=${EXTERNAL_INSTALL_PREFIX}/lib/libz.so"
+                "-DZLIB_INCLUDE_DIR=${EXTERNAL_INSTALL_PREFIX}/include"
+                -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=OFF
+                -DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=OFF
+            )
+        endif()
+
         ExternalProject_Add(libpng_ep
             GIT_REPOSITORY  "${LIBPNG_GIT_REPO}"
             GIT_TAG         "v${LIBPNG_VERSION}"

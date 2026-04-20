@@ -27,9 +27,9 @@
 #                            (opencl-headers) в sysroot або на хості.
 #
 # Кеш-змінні:
-#   OPENCV_VERSION         — версія (git тег)
-#   OPENCV_GIT_REPO        — URL git репозиторію OpenCV
-#   OPENCV_CONTRIB_GIT_REPO — URL git репозиторію opencv_contrib
+#   OPENCV_VERSION          — версія (git тег або архів)
+#   OPENCV_GIT_REPO         — URL git репозиторію OpenCV (тільки при OPENCV_USE_GIT=ON)
+#   OPENCV_CONTRIB_GIT_REPO — URL git репозиторію opencv_contrib (тільки при OPENCV_USE_GIT=ON)
 
 option(USE_SYSTEM_OPENCV
     "Використовувати системний OpenCV (find_package) замість збірки з джерел"
@@ -47,16 +47,20 @@ option(OPENCV_WITH_OPENCL
     "Збирати OpenCV з підтримкою OpenCL (потребує OpenCL ICD loader в sysroot/системі)"
     OFF)
 
-set(OPENCV_VERSION  "4.10.0"
+option(OPENCV_USE_GIT
+    "Завантажувати OpenCV через git clone (OFF = архів з GitHub Releases)"
+    OFF)
+
+set(OPENCV_VERSION  "4.13.0"
     CACHE STRING "Версія OpenCV для збірки з джерел")
 
 set(OPENCV_GIT_REPO
     "https://github.com/opencv/opencv.git"
-    CACHE STRING "Git репозиторій OpenCV")
+    CACHE STRING "Git репозиторій OpenCV (використовується тільки при OPENCV_USE_GIT=ON)")
 
 set(OPENCV_CONTRIB_GIT_REPO
     "https://github.com/opencv/opencv_contrib.git"
-    CACHE STRING "Git репозиторій opencv_contrib")
+    CACHE STRING "Git репозиторій opencv_contrib (використовується тільки при OPENCV_USE_GIT=ON)")
 
 # ---------------------------------------------------------------------------
 
@@ -123,10 +127,21 @@ else()
         set(_contrib_src "${EP_SOURCES_DIR}/opencv_contrib")
 
         if(OPENCV_ENABLE_CONTRIB)
+            if(OPENCV_USE_GIT)
+                set(_ocv_contrib_download_args
+                    GIT_REPOSITORY   "${OPENCV_CONTRIB_GIT_REPO}"
+                    GIT_TAG          "${OPENCV_VERSION}"
+                    GIT_SHALLOW      ON
+                )
+            else()
+                set(_ocv_contrib_download_args
+                    URL "https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.tar.gz"
+                    DOWNLOAD_EXTRACT_TIMESTAMP ON
+                )
+            endif()
+
             ExternalProject_Add(opencv_contrib_ep
-                GIT_REPOSITORY   "${OPENCV_CONTRIB_GIT_REPO}"
-                GIT_TAG          "${OPENCV_VERSION}"
-                GIT_SHALLOW      ON
+                ${_ocv_contrib_download_args}
                 SOURCE_DIR       "${_contrib_src}"
                 CONFIGURE_COMMAND ""
                 BUILD_COMMAND     ""
@@ -213,10 +228,26 @@ else()
             list(APPEND _ocv_byproducts "${_ocv_lib_dir}/lib${_mod}.so")
         endforeach()
 
+        if(OPENCV_USE_GIT)
+            message(STATUS "[OpenCV] Джерело: git clone (${OPENCV_GIT_REPO})")
+            set(_ocv_download_args
+                GIT_REPOSITORY   "${OPENCV_GIT_REPO}"
+                GIT_TAG          "${OPENCV_VERSION}"
+                GIT_SHALLOW      ON
+            )
+        else()
+            set(_ocv_archive_url
+                "https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz")
+            message(STATUS "[OpenCV] Джерело: архів (${_ocv_archive_url})")
+            set(_ocv_download_args
+                URL                 "${_ocv_archive_url}"
+                DOWNLOAD_EXTRACT_TIMESTAMP ON
+            )
+            unset(_ocv_archive_url)
+        endif()
+
         ExternalProject_Add(opencv_ep
-            GIT_REPOSITORY   "${OPENCV_GIT_REPO}"
-            GIT_TAG          "${OPENCV_VERSION}"
-            GIT_SHALLOW      ON
+            ${_ocv_download_args}
             SOURCE_DIR       "${EP_SOURCES_DIR}/opencv"
             # Патч: OpenCVGenPkgconfig.cmake використовує cmake_minimum_required < 3.5,
             # що несумісно з CMake >= 3.28. Виправляємо в джерелах.
@@ -233,9 +264,11 @@ else()
         # Placeholder imported targets з майбутніми шляхами
         _ocv_make_imported_targets(opencv_ep)
 
-        ep_prestamp_git(opencv_ep "${EP_SOURCES_DIR}/opencv" "${OPENCV_VERSION}")
-        if(OPENCV_ENABLE_CONTRIB)
-            ep_prestamp_git(opencv_contrib_ep "${EP_SOURCES_DIR}/opencv_contrib" "${OPENCV_VERSION}")
+        if(OPENCV_USE_GIT)
+            ep_prestamp_git(opencv_ep "${EP_SOURCES_DIR}/opencv" "${OPENCV_VERSION}")
+            if(OPENCV_ENABLE_CONTRIB)
+                ep_prestamp_git(opencv_contrib_ep "${EP_SOURCES_DIR}/opencv_contrib" "${OPENCV_VERSION}")
+            endif()
         endif()
     endif()
 endif()

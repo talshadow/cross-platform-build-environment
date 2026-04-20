@@ -39,6 +39,7 @@ message(STATUS "Deps prefix  : ${EXTERNAL_INSTALL_PREFIX}")
 # Збираємо список EP-цілей що реально оголошені (залежності main project)
 # ---------------------------------------------------------------------------
 set(_sb_all_lib_eps
+    zlib_ep
     libpng_ep
     libjpeg_ep
     libtiff_ep
@@ -57,6 +58,7 @@ set(_sb_all_lib_eps
     easyprofiler_ep
     ncnn_ep
     libfmt_ep
+    onetbb_ep
     libir_ep
     airsim_ep
     physfs_ep
@@ -113,9 +115,9 @@ if(YOCTO_SDK_SYSROOT)
 endif()
 
 # Передаємо прапори USE_SYSTEM_* (щоб основний проєкт не намагався будувати зайве)
-foreach(_lib IN ITEMS LIBPNG LIBJPEG LIBTIFF BOOST OPENSSL OPENCV GEOGRAPHICLIB EIGEN3
+foreach(_lib IN ITEMS ZLIB LIBPNG LIBJPEG LIBTIFF BOOST OPENSSL OPENCV GEOGRAPHICLIB EIGEN3
                       LIBEVENT LIBCAMERA LIBPISP NLOHMANN BOOSTDI BOOSTSML
-                      EASYPROFILER NCNN LIBFMT LIBIR AIRSIM PHYSYS PHYSYSCPP RPICAMAPPS)
+                      EASYPROFILER NCNN LIBFMT ONETBB LIBIR AIRSIM PHYSYS PHYSYSCPP RPICAMAPPS)
     if(DEFINED USE_SYSTEM_${_lib})
         list(APPEND _sb_main_cmake_args
             -DUSE_SYSTEM_${_lib}=${USE_SYSTEM_${_lib}})

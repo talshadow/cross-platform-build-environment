@@ -9,6 +9,7 @@
 # Тут же — явні ExternalProject_Add_StepDependencies() для кожного EP що має залежності.
 # Це єдине місце де описується граф залежностей між EP.
 #
+# LibPng      <- Zlib
 # LibTiff     <- LibJpeg, LibPng
 # OpenCV      <- LibJpeg, LibPng, LibTiff, OpenSSL, [opencv_contrib]
 # LibEvent    <- OpenSSL
@@ -36,6 +37,7 @@ set(_ep_dir "${CMAKE_CURRENT_LIST_DIR}")
 include("${_ep_dir}/Common.cmake")
 
 # ── Незалежні бібліотеки ────────────────────────────────────────────────────
+include("${_ep_dir}/Zlib.cmake")
 include("${_ep_dir}/LibPng.cmake")
 include("${_ep_dir}/LibJpeg.cmake")
 include("${_ep_dir}/OpenSSL.cmake")
@@ -48,7 +50,16 @@ include("${_ep_dir}/EasyProfiler.cmake")
 include("${_ep_dir}/Ncnn.cmake")
 include("${_ep_dir}/Rpclib.cmake")
 include("${_ep_dir}/LibFmt.cmake")
+include("${_ep_dir}/OneTBB.cmake")
 # include("${_ep_dir}/LibIr.cmake")
+
+# ── Залежить від Zlib ───────────────────────────────────────────────────────
+if(TARGET libpng_ep)
+    _ep_collect_deps(_deps zlib_ep)
+    if(_deps)
+        ExternalProject_Add_StepDependencies(libpng_ep build ${_deps})
+    endif()
+endif()
 
 # ── Залежить від LibJpeg + LibPng ───────────────────────────────────────────
 include("${_ep_dir}/LibTiff.cmake")

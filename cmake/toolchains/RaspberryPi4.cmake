@@ -285,8 +285,10 @@ if(RPI_SYSROOT)
     unset(_SYSROOT_GCC_DIRS)
     unset(_SYSROOT_MULTIARCH)
 else()
-    message(STATUS
-        "[RaspberryPi4] Збірка без sysroot. "
-        "Для повної підтримки задайте -DRPI_SYSROOT=<path>")
+    if(CMAKE_CROSSCOMPILING)
+        message(FATAL_ERROR
+            "[RaspberryPi4] RPI_SYSROOT не задано. "
+            "Для крос-компіляції задайте -DRPI_SYSROOT=<path>")
+    endif()
     cross_toolchain_no_sysroot()
 endif()
