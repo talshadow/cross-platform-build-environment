@@ -4,11 +4,11 @@
 #
 # Використання:
 #   include(GitVersion)
-#   git_get_version(MY_VERSION)          # → "1.2.3" або "0.0.0" якщо тег відсутній
+#   git_get_version(MY_VERSION)          # → "1.2.3.4" або "0.0.0.0" якщо тег відсутній
 #   git_get_commit_hash(MY_HASH)         # → "a1b2c3d" або "unknown"
 #
 # git_get_version(<OUT_VAR> [FALLBACK <version>])
-#   OUT_VAR  — змінна, куди записується версія у форматі XX.XX.XX
+#   OUT_VAR  — змінна, куди записується версія у форматі W.X.Y.Z
 #   FALLBACK — версія за замовчуванням, якщо git недоступний або тег не знайдено
 #              (за замовчуванням "0.0.0")
 #
@@ -21,7 +21,7 @@ function(git_get_version OUT_VAR)
     cmake_parse_arguments(_GV "" "FALLBACK" "" ${ARGN})
 
     if(NOT DEFINED _GV_FALLBACK)
-        set(_GV_FALLBACK "0.0.0")
+        set(_GV_FALLBACK "0.0.0.0")
     endif()
 
     find_package(Git QUIET)
@@ -34,7 +34,7 @@ function(git_get_version OUT_VAR)
 
     # Шукаємо найближчий тег у форматі X.Y.Z або vX.Y.Z
     execute_process(
-        COMMAND "${GIT_EXECUTABLE}" describe --tags --match "[0-9]*.[0-9]*.[0-9]*" --abbrev=0
+        COMMAND "${GIT_EXECUTABLE}" describe --tags --match "[0-9]*.[0-9]*.[0-9]*.[0-9]*" --abbrev=0
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         OUTPUT_VARIABLE _GV_RAW
         ERROR_QUIET
@@ -45,7 +45,7 @@ function(git_get_version OUT_VAR)
     # Якщо перший пошук не знайшов — спробуємо з префіксом "v"
     if(NOT _GV_RESULT EQUAL 0 OR _GV_RAW STREQUAL "")
         execute_process(
-            COMMAND "${GIT_EXECUTABLE}" describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --abbrev=0
+            COMMAND "${GIT_EXECUTABLE}" describe --tags --match "v[0-9]*.[0-9]*.[0-9]*.[0-9]*" --abbrev=0
             WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
             OUTPUT_VARIABLE _GV_RAW
             ERROR_QUIET
@@ -60,12 +60,12 @@ function(git_get_version OUT_VAR)
         return()
     endif()
 
-    # Видаляємо префікс "v" якщо є, залишаємо лише X.Y.Z
+    # Видаляємо префікс "v" якщо є, залишаємо лише W.X.Y.Z
     string(REGEX REPLACE "^[vV]" "" _GV_VERSION "${_GV_RAW}")
 
-    # Перевіряємо формат XX.XX.XX
-    if(NOT _GV_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-        message(WARNING "GitVersion: тег '${_GV_RAW}' не відповідає формату X.Y.Z, "
+    # Перевіряємо формат W.X.Y.Z
+    if(NOT _GV_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$")
+        message(WARNING "GitVersion: тег '${_GV_RAW}' не відповідає формату W.X.Y.Z, "
                         "використовується FALLBACK=${_GV_FALLBACK}")
         set(${OUT_VAR} "${_GV_FALLBACK}" PARENT_SCOPE)
         return()

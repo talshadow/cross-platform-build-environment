@@ -121,7 +121,7 @@ cross_detect_platform()  # виставляє PLATFORM_NAME, PLATFORM_RPI, PLATF
                          # PLATFORM_ARM, PLATFORM_X86_64, PLATFORM_CROSS_COMPILE
 cross_get_target_info()  # діагностичний вивід конфігурації + платформи
 
-git_get_version(PROJECT_VERSION)    # з git тегу, FALLBACK="0.0.0"
+git_get_version(PROJECT_VERSION)    # з git тегу W.X.Y.Z, FALLBACK="0.0.0.0"
 git_get_commit_hash(GIT_HASH)       # скорочений хеш HEAD (7 символів)
 
 ep_check_binary_deps("/path/to/binary" DEPS)  # рекурсивний аналіз залежностей
