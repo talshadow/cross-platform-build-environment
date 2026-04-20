@@ -86,6 +86,11 @@ else()
         _ep_require_meson()
         find_program(_rpicam_meson meson)
         find_program(_rpicam_ninja ninja)
+
+        find_package(Python3 QUIET COMPONENTS Interpreter)
+        if(NOT Python3_FOUND)
+            message(FATAL_ERROR "[RpiCamApps] Python3 не знайдено — потрібен для патчу libexif")
+        endif()
         _ep_cmake_to_meson_buildtype(_rpicam_meson_bt)
 
         # Генеруємо meson cross-file для крос-компіляції
@@ -96,6 +101,10 @@ else()
             GIT_TAG         "${RPICAMAPPS_VERSION}"
             GIT_SHALLOW     ON
             SOURCE_DIR      "${EP_SOURCES_DIR}/rpicamapps"
+            PATCH_COMMAND
+                "${Python3_EXECUTABLE}"
+                    "${CMAKE_SOURCE_DIR}/cmake/external/patches/rpicamapps-libexif-optional.py"
+                    "<SOURCE_DIR>"
             CONFIGURE_COMMAND
                 env
                     PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
