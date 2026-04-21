@@ -142,6 +142,24 @@ else()
         # На x86_64 pipeline збирається (pure C++), але не запускається без хардвару.
         set(_libcamera_pipelines "rpi/vc4")
 
+        # libcamera (RPi fork) встановлює згенеровані IPA-заголовки в
+        # include/libcamera/libcamera/ через подвійний subdir у meson.build.
+        # Після ninja install пересуваємо їх на рівень вгору і видаляємо
+        # зайву директорію, щоб весь публічний API лежав у include/libcamera/.
+        set(_libcamera_flatten_script
+            "${CMAKE_BINARY_DIR}/_ep_cfg/libcamera-flatten-headers.cmake")
+        file(WRITE "${_libcamera_flatten_script}" [[
+set(_src "${SRC}")
+set(_dst "${DST}")
+if(IS_DIRECTORY "${_src}")
+    file(GLOB _items LIST_DIRECTORIES true "${_src}/*")
+    foreach(_item ${_items})
+        file(COPY "${_item}" DESTINATION "${_dst}")
+    endforeach()
+    file(REMOVE_RECURSE "${_src}")
+endif()
+]])
+
         ExternalProject_Add(libcamera_ep
             GIT_REPOSITORY  "${LIBCAMERA_GIT_REPO}"
             GIT_TAG         "${LIBCAMERA_VERSION}"
@@ -169,6 +187,10 @@ else()
             ${_libcamera_ninja} -C "<BINARY_DIR>" -j${_EP_NPROC}
             INSTALL_COMMAND
             ${_libcamera_ninja} -C "<BINARY_DIR>" install
+            COMMAND ${CMAKE_COMMAND}
+                "-DSRC=${EXTERNAL_INSTALL_PREFIX}/include/libcamera/libcamera"
+                "-DDST=${EXTERNAL_INSTALL_PREFIX}/include/libcamera"
+                -P "${_libcamera_flatten_script}"
             BUILD_BYPRODUCTS "${_libcamera_lib}"
             LOG_DOWNLOAD    ON
             LOG_CONFIGURE   ON
@@ -186,6 +208,7 @@ else()
     unset(_libcamera_cross_args)
     unset(_libcamera_overlay_file)
     unset(_libcamera_pipelines)
+    unset(_libcamera_flatten_script)
 endif()
 endif()
 
