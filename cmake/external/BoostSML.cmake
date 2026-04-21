@@ -32,6 +32,7 @@ if(USE_SYSTEM_BOOSTSML)
     # ── Системна бібліотека ─────────────────────────────────────────────────
     find_package(sml REQUIRED
         HINTS "${CMAKE_SYSROOT}/usr" "${CMAKE_SYSROOT}/usr/local")
+    ep_imported_interface(boost::sml "${_boostsml_inc}")
     message(STATUS "[BoostSML] Системна: boost::sml")
 
 else()
@@ -41,8 +42,8 @@ else()
         NO_DEFAULT_PATH)
 
     if(sml_FOUND)
+        ep_imported_interface(boost::sml "${_boostsml_inc}")
         message(STATUS "[BoostSML] Знайдено готові заголовки у ${EXTERNAL_INSTALL_PREFIX}")
-        # boost::sml вже створено find_package
 
     elseif(EXISTS "${_boostsml_inc}/boost/sml.hpp")
         ep_imported_interface(boost::sml "${_boostsml_inc}")
