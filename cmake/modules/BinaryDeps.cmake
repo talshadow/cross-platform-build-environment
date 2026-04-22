@@ -15,9 +15,8 @@
 # не вийде за їхні межі (SYSROOT/SYSTEM) або не зустріне вже відвіданий
 # вузол (захист від циклів).
 #
-# Якщо передано <out_var> — записує у неї список повних шляхів до ВСІХ
-# знайдених бібліотек (EP + TOOLCHAIN + SYSROOT + SYSTEM), без дублів.
-# MISSING бібліотеки до списку не потрапляють.
+# Якщо передано <out_var> — записує у неї повні шляхи бібліотек EP+TOOLCHAIN
+# (тих що треба деплоїти разом з бінарником). SYSROOT/SYSTEM/MISSING не включаються.
 #
 # Використання:
 #   include(BinaryDeps)
@@ -36,7 +35,8 @@
 # Внутрішній хелпер: будує список директорій для пошуку бібліотек
 # ---------------------------------------------------------------------------
 function(_ep_binarydeps_build_search_dirs)
-    if(DEFINED _EP_BINARYDEPS_SEARCH_DIRS_BUILT)
+    get_property(_dirs_built GLOBAL PROPERTY _EP_BINARYDEPS_SEARCH_DIRS_BUILT)
+    if(_dirs_built)
         return()
     endif()
 
@@ -65,6 +65,16 @@ function(_ep_binarydeps_build_search_dirs)
             get_filename_component(_tc_parent "${_libgcc_dir}" DIRECTORY)
             if(EXISTS "${_tc_parent}" AND NOT "${_tc_parent}" STREQUAL "${_libgcc_dir}")
                 list(APPEND _tc_dirs "${_tc_parent}")
+            endif()
+        endif()
+        # Ubuntu cross-compiler: версовані runtime libs (libstdc++.so.6, libgomp.so.1,
+        # libgcc_s.so.1) знаходяться в /usr/<triplet>/lib/, а не поруч з libgcc.a.
+        # Витягуємо triplet з імені компілятора (aarch64-linux-gnu-gcc-12 → aarch64-linux-gnu).
+        get_filename_component(_compiler_name "${CMAKE_C_COMPILER}" NAME)
+        if(_compiler_name MATCHES "^(([^-]+-)+linux-[^-]+)-")
+            set(_triplet "${CMAKE_MATCH_1}")
+            if(EXISTS "/usr/${_triplet}/lib")
+                list(APPEND _tc_dirs "/usr/${_triplet}/lib")
             endif()
         endif()
     endif()
@@ -96,7 +106,7 @@ function(_ep_binarydeps_build_search_dirs)
     list(APPEND _sys_dirs ${_host_multiarch})
     set_property(GLOBAL PROPERTY _EP_BINARYDEPS_SYS_DIRS "${_sys_dirs}")
 
-    set(_EP_BINARYDEPS_SEARCH_DIRS_BUILT TRUE CACHE INTERNAL "")
+    set_property(GLOBAL PROPERTY _EP_BINARYDEPS_SEARCH_DIRS_BUILT TRUE)
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -162,32 +172,32 @@ function(_ep_binarydeps_recurse full_path depth)
         endif()
         set(_soname "${CMAKE_MATCH_1}")
 
-        # Класифікуємо
+        # Класифікуємо: EP → SYSROOT → TOOLCHAIN → SYSTEM.
+        # SYSROOT перед TOOLCHAIN щоб libc/ld та інші цільові бібліотеки
+        # не перехоплювались /usr/<triplet>/lib/ хостового тулчейна.
         _ep_binarydeps_find_in_dirs(_found_ep  "${_soname}" ${_ep_dirs})
-        _ep_binarydeps_find_in_dirs(_found_tc  "${_soname}" ${_tc_dirs})
         _ep_binarydeps_find_in_dirs(_found_sr  "${_soname}" ${_sr_dirs})
+        _ep_binarydeps_find_in_dirs(_found_tc  "${_soname}" ${_tc_dirs})
         _ep_binarydeps_find_in_dirs(_found_sys "${_soname}" ${_sys_dirs})
 
         if(_found_ep)
             message(STATUS "${_indent}[EP]        ${_soname}  (${_found_ep})")
             set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_SUMMARY_EP "${_soname}")
-            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_ALL_PATHS  "${_found_ep}")
+            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_DEPLOY_PATHS "${_found_ep}")
             math(EXPR _next "${depth} + 1")
             _ep_binarydeps_recurse("${_found_ep}" ${_next})
-        elseif(_found_tc)
-            message(STATUS "${_indent}[TOOLCHAIN] ${_soname}  (${_found_tc})")
-            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_SUMMARY_TC "${_soname}")
-            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_ALL_PATHS  "${_found_tc}")
-            math(EXPR _next "${depth} + 1")
-            _ep_binarydeps_recurse("${_found_tc}" ${_next})
         elseif(_found_sr)
             message(STATUS "${_indent}[SYSROOT]   ${_soname}  (${_found_sr})")
             set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_SUMMARY_SR "${_soname}")
-            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_ALL_PATHS  "${_found_sr}")
+        elseif(_found_tc)
+            message(STATUS "${_indent}[TOOLCHAIN] ${_soname}  (${_found_tc})")
+            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_SUMMARY_TC "${_soname}")
+            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_DEPLOY_PATHS "${_found_tc}")
+            math(EXPR _next "${depth} + 1")
+            _ep_binarydeps_recurse("${_found_tc}" ${_next})
         elseif(_found_sys)
             message(STATUS "${_indent}[SYSTEM]    ${_soname}  (${_found_sys})")
             set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_SUMMARY_SYS "${_soname}")
-            set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_ALL_PATHS   "${_found_sys}")
         else()
             message(STATUS "${_indent}[MISSING]   ${_soname}")
             set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_SUMMARY_MISSING "${_soname}")
@@ -227,7 +237,7 @@ function(ep_check_binary_deps binary_path)
     set_property(GLOBAL PROPERTY _EP_BINARYDEPS_SUMMARY_SR      "")
     set_property(GLOBAL PROPERTY _EP_BINARYDEPS_SUMMARY_SYS     "")
     set_property(GLOBAL PROPERTY _EP_BINARYDEPS_SUMMARY_MISSING "")
-    set_property(GLOBAL PROPERTY _EP_BINARYDEPS_ALL_PATHS       "")
+    set_property(GLOBAL PROPERTY _EP_BINARYDEPS_DEPLOY_PATHS    "")
 
     # Будуємо таблицю пошукових директорій
     _ep_binarydeps_build_search_dirs()
@@ -269,12 +279,12 @@ function(ep_check_binary_deps binary_path)
     endif()
     message(STATUS "")
 
-    # ── Повернути список повних шляхів ───────────────────────────────────────
+    # ── Повернути список шляхів EP+TOOLCHAIN (без SYSROOT/SYSTEM) ───────────
     if(ARGC GREATER 1)
-        get_property(_all_paths GLOBAL PROPERTY _EP_BINARYDEPS_ALL_PATHS)
-        if(_all_paths)
-            list(REMOVE_DUPLICATES _all_paths)
+        get_property(_deploy_paths GLOBAL PROPERTY _EP_BINARYDEPS_DEPLOY_PATHS)
+        if(_deploy_paths)
+            list(REMOVE_DUPLICATES _deploy_paths)
         endif()
-        set(${ARGV1} "${_all_paths}" PARENT_SCOPE)
+        set(${ARGV1} "${_deploy_paths}" PARENT_SCOPE)
     endif()
 endfunction()
