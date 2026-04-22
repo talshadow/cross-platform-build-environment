@@ -7,10 +7,21 @@
 #   JPEG::JPEG, PNG::PNG, TIFF::TIFF, OpenSSL::SSL
 #
 # Provides imported targets (після першої успішної збірки — через find_package):
-#   OpenCV::opencv_core, OpenCV::opencv_imgproc, OpenCV::opencv_imgcodecs,
-#   OpenCV::opencv_highgui, OpenCV::opencv_videoio, OpenCV::opencv_video,
-#   OpenCV::opencv_features2d, OpenCV::opencv_calib3d, OpenCV::opencv_objdetect,
-#   OpenCV::opencv_dnn, OpenCV::opencv_ml, OpenCV::opencv_flann, OpenCV::opencv_photo
+#   Core: opencv_core, opencv_imgproc, opencv_imgcodecs, opencv_highgui,
+#         opencv_videoio, opencv_video, opencv_features2d, opencv_calib3d,
+#         opencv_objdetect, opencv_dnn, opencv_ml, opencv_flann, opencv_photo
+#   Contrib: opencv_aruco, opencv_bgsegm, opencv_bioinspired, opencv_ccalib,
+#            opencv_datasets, opencv_dnn_objdetect, opencv_dnn_superres, opencv_dpm,
+#            opencv_face, opencv_freetype, opencv_fuzzy, opencv_hdf, opencv_hfs,
+#            opencv_img_hash, opencv_intensity_transform, opencv_line_descriptor,
+#            opencv_mcc, opencv_optflow, opencv_ovis, opencv_phase_unwrapping,
+#            opencv_plot, opencv_quality, opencv_rapid, opencv_reg, opencv_rgbd,
+#            opencv_saliency, opencv_sfm, opencv_shape, opencv_stereo,
+#            opencv_structured_light, opencv_superres, opencv_surface_matching,
+#            opencv_text, opencv_tracking, opencv_videostab, opencv_viz,
+#            opencv_wechat_qrcode, opencv_xfeatures2d, opencv_ximgproc,
+#            opencv_xobjdetect, opencv_xphoto
+#   Всі таргети доступні як OpenCV::<module_name>
 #
 # При першій збірці (бібліотека ще не встановлена) — placeholder targets
 # з майбутніми шляхами. Після `cmake --build` повторна конфігурація
@@ -72,6 +83,7 @@ set(_ocv_core    "${_ocv_lib_dir}/libopencv_core.so")
 
 # Список модулів для placeholder targets (використовується якщо бібліотека ще не зібрана)
 set(_ocv_modules
+    # core modules
     opencv_core
     opencv_imgproc
     opencv_imgcodecs
@@ -85,6 +97,48 @@ set(_ocv_modules
     opencv_ml
     opencv_flann
     opencv_photo
+    # contrib modules
+    opencv_aruco
+    opencv_bgsegm
+    opencv_bioinspired
+    opencv_ccalib
+    opencv_datasets
+    opencv_dnn_objdetect
+    opencv_dnn_superres
+    opencv_dpm
+    opencv_face
+    opencv_freetype
+    opencv_fuzzy
+    opencv_hdf
+    opencv_hfs
+    opencv_img_hash
+    opencv_intensity_transform
+    opencv_line_descriptor
+    opencv_mcc
+    opencv_optflow
+    opencv_ovis
+    opencv_phase_unwrapping
+    opencv_plot
+    opencv_quality
+    opencv_rapid
+    opencv_reg
+    opencv_rgbd
+    opencv_saliency
+    opencv_sfm
+    opencv_shape
+    opencv_stereo
+    opencv_structured_light
+    opencv_superres
+    opencv_surface_matching
+    opencv_text
+    opencv_tracking
+    opencv_videostab
+    opencv_viz
+    opencv_wechat_qrcode
+    opencv_xfeatures2d
+    opencv_ximgproc
+    opencv_xobjdetect
+    opencv_xphoto
 )
 
 # Хелпер: створює OpenCV:: IMPORTED targets для вже встановленого або EP OpenCV
@@ -280,6 +334,8 @@ else()
 
         # Placeholder imported targets з майбутніми шляхами
         _ocv_make_imported_targets(opencv_ep)
+
+        ep_track_cmake_file(opencv_ep "${CMAKE_CURRENT_LIST_FILE}")
 
         if(OPENCV_USE_GIT)
             ep_prestamp_git(opencv_ep "${EP_SOURCES_DIR}/opencv" "${OPENCV_VERSION}")

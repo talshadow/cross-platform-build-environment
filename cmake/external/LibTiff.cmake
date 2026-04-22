@@ -28,7 +28,7 @@
 
 option(USE_SYSTEM_LIBTIFF
     "Використовувати системний libtiff (find_package) замість збірки з джерел"
-    OFF)
+    ON)
 
 set(LIBTIFF_VERSION  "4.6.0"
     CACHE STRING "Версія libtiff для збірки з джерел")
@@ -116,6 +116,7 @@ else()
         )
 
         ep_imported_library_from_ep(TIFF::TIFF libtiff_ep "${_tiff_lib}" "${_tiff_inc}")
+        ep_track_cmake_file(libtiff_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

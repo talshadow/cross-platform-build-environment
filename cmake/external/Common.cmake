@@ -21,6 +21,8 @@
 #     _ep_cmake_to_meson_buildtype()     — конвертує CMAKE_BUILD_TYPE → meson --buildtype
 #     _ep_require_meson()                — перевіряє наявність meson+ninja, FATAL_ERROR якщо нема
 #     _ep_require_python_modules()       — перевіряє наявність Python3-модулів на хості
+#     _ep_create_sysroot_lib_scripts()   — створює libm.so linker script → sysroot (крос-компіляція)
+#     ep_track_cmake_file()              — авторебілд при зміні Lib*.cmake; таргети -reset і -rebuild
 
 cmake_minimum_required(VERSION 3.28)
 include(ExternalProject)
@@ -80,6 +82,76 @@ endif()
 
 file(MAKE_DIRECTORY "${EXTERNAL_INSTALL_PREFIX}")
 message(STATUS "[ExternalDeps] Install prefix: ${EXTERNAL_INSTALL_PREFIX}")
+
+# ---------------------------------------------------------------------------
+# _ep_create_sysroot_lib_scripts()
+#
+# При крос-компіляції створює GNU ld linker script libm.so у
+# EXTERNAL_INSTALL_PREFIX/lib/ що вказує на реальний libm.so.6 із sysroot.
+#
+# Проблема: Ubuntu 24.04 host GCC 13+ компілює виклики strtoul/strtod/etc
+# у __isoc23_strtoul@GLIBC_2.38 (C23 варіанти). EP-бібліотеки, зібрані на
+# host і злінковані проти host libm, тягнуть ці символи. Цільова система
+# (наприклад RPi з GLIBC 2.36) їх не має → "undefined reference".
+#
+# Рішення: linker script libm.so в EXTERNAL_INSTALL_PREFIX/lib/ перехоплює
+# пошук libm і перенаправляє на sysroot libm.so.6, що містить лише символи
+# доступні на цільовій системі. Оскільки EXTERNAL_INSTALL_PREFIX стоїть
+# першим у CMAKE_PREFIX_PATH, цей скрипт знаходиться раніше за host libm.
+#
+# Викликається автоматично під час конфігурації — ручний виклик не потрібен.
+# ---------------------------------------------------------------------------
+function(_ep_create_sysroot_lib_scripts)
+    if(NOT CMAKE_CROSSCOMPILING OR NOT CMAKE_SYSROOT)
+        return()
+    endif()
+
+    set(_lib_dir "${EXTERNAL_INSTALL_PREFIX}/lib")
+    file(MAKE_DIRECTORY "${_lib_dir}")
+
+    # Шукаємо libm.so.6 у sysroot — перевіряємо multiarch і звичайні шляхи
+    set(_libm_candidates "")
+    if(CMAKE_LIBRARY_ARCHITECTURE)
+        list(APPEND _libm_candidates
+            "${CMAKE_SYSROOT}/lib/${CMAKE_LIBRARY_ARCHITECTURE}/libm.so.6"
+            "${CMAKE_SYSROOT}/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/libm.so.6"
+        )
+    endif()
+    list(APPEND _libm_candidates
+        "${CMAKE_SYSROOT}/lib/libm.so.6"
+        "${CMAKE_SYSROOT}/usr/lib/libm.so.6"
+    )
+
+    set(_libm_path "")
+    foreach(_c IN LISTS _libm_candidates)
+        if(EXISTS "${_c}")
+            set(_libm_path "${_c}")
+            break()
+        endif()
+    endforeach()
+
+    if(NOT _libm_path)
+        message(WARNING "[Common] libm.so.6 не знайдено у sysroot '${CMAKE_SYSROOT}'. "
+            "Шляхи перевірено: ${_libm_candidates}. "
+            "EP-бібліотеки можуть тягнути host GLIBC_2.38 символи.")
+        return()
+    endif()
+
+    set(_script "${_lib_dir}/libm.so")
+    # Перестворюємо якщо вказує не туди (sysroot міг змінитись)
+    set(_expected_content "GROUP ( ${_libm_path} )\n")
+    if(EXISTS "${_script}")
+        file(READ "${_script}" _existing)
+        if(_existing STREQUAL _expected_content)
+            return()
+        endif()
+    endif()
+
+    file(WRITE "${_script}" "${_expected_content}")
+    message(STATUS "[Common] Створено ${_script} → ${_libm_path}")
+endfunction()
+
+_ep_create_sysroot_lib_scripts()
 
 # EP_SOURCES_DIR — спільна директорія git-клонів сорців для всіх toolchain
 if(NOT DEFINED EP_SOURCES_DIR OR EP_SOURCES_DIR STREQUAL "")
@@ -564,6 +636,55 @@ function(ep_prestamp_git ep_name source_dir git_tag)
         file(WRITE "${_dl_stamp}" "")
         message(STATUS "[${ep_name}] Джерела вже на тегу ${git_tag} — download stamp (пропуск fetch)")
     endif()
+endfunction()
+
+# ---------------------------------------------------------------------------
+# ep_track_cmake_file(<ep_name> <cmake_file>)
+#
+# Змушує ExternalProject перезапустити configure (і відповідно rebuild) коли
+# змінюється Lib*.cmake файл конфігурації бібліотеки.
+#
+# ВАЖЛИВО: cmake_file МУСИТЬ передаватися явно як "${CMAKE_CURRENT_LIST_FILE}"
+# з місця виклику (Lib*.cmake). Всередині функції CMAKE_CURRENT_LIST_FILE
+# вказує на Common.cmake (поведінка CMake 3.17+).
+#
+# Також створює два допоміжні таргети:
+#
+#   <ep_name>-reset    — видаляє ВСІ stamp-файли (download + configure + build + install).
+#                        Використовувати після помилки завантаження або при зміні
+#                        cmake-аргументів EP.
+#
+#   <ep_name>-rebuild  — видаляє тільки configure + build + install стампи.
+#                        download пропускається — сорці вже є.
+#                        Використовувати після ручної правки файлів у EP_SOURCES_DIR
+#                        (наприклад, додали логування до OpenCV).
+#
+# Виклик: після ExternalProject_Add у кожному Lib*.cmake
+#   ep_track_cmake_file(libcamera_ep "${CMAKE_CURRENT_LIST_FILE}")
+#
+# Workflow після зміни сорців:
+#   cmake --build <build_dir> --target opencv_ep-rebuild
+#   cmake --build <build_dir>
+# ---------------------------------------------------------------------------
+function(ep_track_cmake_file ep_name cmake_file)
+    ExternalProject_Add_Step(${ep_name} reconfigure_on_cmake_change
+        DEPENDERS configure
+        DEPENDS   "${cmake_file}"
+    )
+    ExternalProject_Get_Property(${ep_name} stamp_dir)
+    add_custom_target(${ep_name}-reset
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${stamp_dir}"
+        COMMENT "[${ep_name}] Всі stamp-файли видалено — наступний build перезапустить всі кроки"
+        VERBATIM
+    )
+    add_custom_target(${ep_name}-rebuild
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${stamp_dir}/${ep_name}-configure"
+            "${stamp_dir}/${ep_name}-build"
+            "${stamp_dir}/${ep_name}-install"
+        COMMENT "[${ep_name}] Configure+build+install stamps видалено — наступний build перекомпілює сорці"
+        VERBATIM
+    )
 endfunction()
 
 # ---------------------------------------------------------------------------

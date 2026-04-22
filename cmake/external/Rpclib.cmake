@@ -75,6 +75,7 @@ else()
         )
 
         ep_imported_library_from_ep(rpclib::rpc rpclib_ep "${_rpclib_lib}" "${_rpclib_inc}")
+        ep_track_cmake_file(rpclib_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

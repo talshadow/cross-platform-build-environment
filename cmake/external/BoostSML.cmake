@@ -70,6 +70,7 @@ else()
         )
 
         ep_imported_interface_from_ep(boost::sml boostsml_ep "${_boostsml_inc}")
+        ep_track_cmake_file(boostsml_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

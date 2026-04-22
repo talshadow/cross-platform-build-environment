@@ -22,7 +22,7 @@
 
 option(USE_SYSTEM_LIBJPEG
     "Використовувати системний libjpeg (find_package) замість збірки libjpeg-turbo"
-    OFF)
+    ON)
 
 set(LIBJPEG_VERSION  "3.0.3"
     CACHE STRING "Версія libjpeg-turbo для збірки з джерел")
@@ -84,6 +84,7 @@ else()
 
         ep_imported_library_from_ep(JPEG::JPEG           libjpeg_ep "${_jpeg_lib}"      "${_jpeg_inc}")
         ep_imported_library_from_ep(TurboJPEG::TurboJPEG libjpeg_ep "${_turbojpeg_lib}" "${_jpeg_inc}")
+        ep_track_cmake_file(libjpeg_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

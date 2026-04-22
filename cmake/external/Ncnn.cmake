@@ -81,6 +81,7 @@ else()
         )
 
         ep_imported_library_from_ep(ncnn::ncnn ncnn_ep "${_ncnn_lib}" "${_ncnn_inc}")
+        ep_track_cmake_file(ncnn_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

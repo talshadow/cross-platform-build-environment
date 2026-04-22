@@ -70,6 +70,7 @@ else()
 
         ep_imported_library_from_ep(
             easy_profiler::easy_profiler easyprofiler_ep "${_ep_lib}" "${_ep_inc}")
+        ep_track_cmake_file(easyprofiler_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

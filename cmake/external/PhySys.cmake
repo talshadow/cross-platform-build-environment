@@ -72,6 +72,7 @@ else()
 
         ep_imported_library_from_ep(
             PhysicsFS::PhysicsFS physfs_ep "${_physfs_lib}" "${_physfs_inc}")
+        ep_track_cmake_file(physfs_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

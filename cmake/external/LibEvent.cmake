@@ -107,6 +107,7 @@ else()
 
         ep_imported_library_from_ep(libevent::core  libevent_ep "${_libevent_core}"  "${_libevent_inc}")
         ep_imported_library_from_ep(libevent::extra libevent_ep "${_libevent_extra}" "${_libevent_inc}")
+        ep_track_cmake_file(libevent_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

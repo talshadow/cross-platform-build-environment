@@ -131,6 +131,7 @@ else()
         )
 
     ep_imported_library_from_ep(AirSim::AirLib airsim_ep "${_airsim_lib}" "${_airsim_inc}")
+    ep_track_cmake_file(airsim_ep "${CMAKE_CURRENT_LIST_FILE}")
 
     unset(_airsim_eigen_inc)
     unset(_airsim_ep_deps)

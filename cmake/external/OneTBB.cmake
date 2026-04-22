@@ -94,6 +94,7 @@ else()
 
         ep_imported_library_from_ep(TBB::tbb       onetbb_ep "${_tbb_lib}"       "${_tbb_inc}")
         ep_imported_library_from_ep(TBB::tbbmalloc onetbb_ep "${_tbbmalloc_lib}" "${_tbb_inc}")
+        ep_track_cmake_file(onetbb_ep "${CMAKE_CURRENT_LIST_FILE}")
 
         if(ONETBB_USE_GIT)
             ep_prestamp_git(onetbb_ep "${EP_SOURCES_DIR}/onetbb" "v${ONETBB_VERSION}")

@@ -105,6 +105,7 @@ else()
 
         ep_imported_library_from_ep(
             GeographicLib::GeographicLib geographiclib_ep "${_geolib_lib}" "${_geolib_inc}")
+        ep_track_cmake_file(geographiclib_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

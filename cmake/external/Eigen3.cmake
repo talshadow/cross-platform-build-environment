@@ -85,6 +85,7 @@ else()
         )
 
         ep_imported_interface_from_ep(Eigen3::Eigen eigen3_ep "${_eigen_inc}")
+        ep_track_cmake_file(eigen3_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

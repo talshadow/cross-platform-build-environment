@@ -186,6 +186,7 @@ ep_imported_library_from_ep(
     Boost::program_options boost_ep "${_boost_lib_po}" "${_boost_inc}")
 target_link_libraries(Boost::program_options
     INTERFACE Boost::headers)
+ep_track_cmake_file(boost_ep "${CMAKE_CURRENT_LIST_FILE}")
 endif()
 endif()
 

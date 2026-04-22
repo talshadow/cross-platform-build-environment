@@ -80,6 +80,7 @@ else()
         )
 
         ep_imported_library_from_ep(libir::libir libir_ep "${_libir_lib}" "${_libir_inc}")
+        ep_track_cmake_file(libir_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

@@ -37,7 +37,7 @@
 
 option(USE_SYSTEM_OPENSSL
     "Використовувати системний OpenSSL (find_package) замість збірки з джерел"
-    OFF)
+    ON)
 
 set(OPENSSL_VERSION  "3.3.1"
     CACHE STRING "Версія OpenSSL для збірки з джерел")
@@ -241,6 +241,8 @@ else()
         ep_imported_library_from_ep(OpenSSL::Crypto openssl_ep "${_crypto_lib3}" "${_ssl_inc}")
         ep_imported_library_from_ep(OpenSSL::SSL    openssl_ep "${_ssl_lib3}"    "${_ssl_inc}")
         target_link_libraries(OpenSSL::SSL INTERFACE OpenSSL::Crypto)
+
+        ep_track_cmake_file(openssl_ep "${CMAKE_CURRENT_LIST_FILE}")
 
         ep_prestamp_git(openssl_ep "${EP_SOURCES_DIR}/openssl" "openssl-${OPENSSL_VERSION}")
 

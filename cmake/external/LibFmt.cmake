@@ -67,6 +67,7 @@ else()
         )
 
         ep_imported_library_from_ep(fmt::fmt libfmt_ep "${_fmt_lib}" "${_fmt_inc}")
+        ep_track_cmake_file(libfmt_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

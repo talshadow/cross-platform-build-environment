@@ -132,6 +132,8 @@ else()
         ep_imported_library_from_ep(
             libpisp::libpisp libpisp_ep "${_libpisp_lib}" "${_libpisp_inc}")
 
+        ep_track_cmake_file(libpisp_ep "${CMAKE_CURRENT_LIST_FILE}")
+
         ep_prestamp_git(libpisp_ep "${EP_SOURCES_DIR}/libpisp" "${LIBPISP_VERSION}")
 
         unset(_libpisp_meson)

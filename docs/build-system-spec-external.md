@@ -41,11 +41,11 @@ cmake/SuperBuild.cmake  ← superbuild режим
 | libtiff | `TIFF::TIFF` | `SHARED IMPORTED` |
 | OpenSSL | `OpenSSL::SSL`, `OpenSSL::Crypto` | `SHARED IMPORTED` |
 | Boost | `Boost::headers`, `Boost::program_options` | `INTERFACE / SHARED` |
-| OpenCV | `opencv_core`, `opencv_imgproc`, … | `SHARED IMPORTED` |
+| OpenCV | `OpenCV::opencv_core`, `OpenCV::opencv_imgproc`, … (41 модуль) | `SHARED IMPORTED` |
 | GeographicLib | `GeographicLib::GeographicLib` | `SHARED IMPORTED` |
 | Eigen3 | `Eigen3::Eigen` | `INTERFACE IMPORTED` |
 | libevent | `libevent::core`, `libevent::extra` | `SHARED IMPORTED` |
-| libcamera | `libcamera::libcamera` | `SHARED IMPORTED` |
+| libcamera | `libcamera::libcamera` (тягне `libcamera::libcamera-base` автоматично) | `SHARED IMPORTED` |
 | libpisp | `libpisp::libpisp` | `SHARED IMPORTED` |
 | nlohmann/json | `nlohmann_json::nlohmann_json` | `INTERFACE IMPORTED` |
 | boost::di | `boost::di` | `INTERFACE IMPORTED` |
@@ -169,7 +169,20 @@ endif()
 Якщо бібліотека потребує нестандартного scope пошуку — викликати `ep_find_scope()`
 явно і передати окремо від `ep_cmake_args()`.
 
-### 7. Прибирати локальні змінні
+### 7. Викликати ep_track_cmake_file після ExternalProject_Add
+
+```cmake
+ep_track_cmake_file(libfoo_ep "${CMAKE_CURRENT_LIST_FILE}")
+```
+
+Автоматично:
+- Перезапускає configure + build при зміні поточного `Lib*.cmake` файлу
+- Створює таргети `libfoo_ep-reset` і `libfoo_ep-rebuild` (детальніше — розділ «Управління EP»)
+
+**ВАЖЛИВО:** `"${CMAKE_CURRENT_LIST_FILE}"` передавати **явно** з місця виклику.
+Всередині функції `CMAKE_CURRENT_LIST_FILE` вказує на `Common.cmake` (поведінка CMake 3.17+).
+
+### 8. Прибирати локальні змінні
 
 ```cmake
 unset(_foo_lib)
@@ -428,6 +441,55 @@ _ep_require_python_modules(yaml ply)
 
 ---
 
+### ep_track_cmake_file(ep_name cmake_file)
+
+Реєструє залежність EP від його `Lib*.cmake` файлу та створює допоміжні таргети.
+
+**Авторебілд при зміні конфігурації:**
+Якщо `Lib*.cmake` змінено (нові прапори, нова версія, нові залежності) —
+наступний `cmake --build` автоматично перезапустить configure + build без ручного втручання.
+
+**Таргети що створюються:**
+
+| Таргет | Видаляє стампи | Призначення |
+|---|---|---|
+| `<ep>-reset` | всі (download + configure + build + install) | Помилка завантаження, зміна cmake-аргументів |
+| `<ep>-rebuild` | configure + build + install | Ручна правка сорців у `EP_SOURCES_DIR` |
+
+```bash
+# Після правки сорців OpenCV (логи, патчі тощо):
+cmake --build build/rpi4-release --target opencv_ep-rebuild
+cmake --build build/rpi4-release
+
+# Після помилки завантаження або зміни cmake-аргументів:
+cmake --build build/rpi4-release --target opencv_ep-reset
+cmake --build build/rpi4-release
+```
+
+**Виклик:** після `ExternalProject_Add` і `ep_imported_library_from_ep` у кожному `Lib*.cmake`.
+`cmake_file` МУСИТЬ бути `"${CMAKE_CURRENT_LIST_FILE}"` — переданим явно з місця виклику.
+
+---
+
+### _ep_create_sysroot_lib_scripts()
+
+Викликається **автоматично** під час конфігурації — ручний виклик не потрібен.
+
+При крос-компіляції (`CMAKE_CROSSCOMPILING=ON` + `CMAKE_SYSROOT` задано) створює
+GNU ld linker script `${EXTERNAL_INSTALL_PREFIX}/lib/libm.so` що вказує на
+реальний `libm.so.6` із sysroot.
+
+**Проблема яку вирішує:** GCC 13+ на Ubuntu 24.04 компілює виклики `strtoul`, `strtod` тощо
+у C23-варіанти (`__isoc23_strtoul@GLIBC_2.38`). EP-бібліотеки, зібрані на host,
+тягнуть ці символи. На цільовій системі (RPi, GLIBC 2.36) їх не існує.
+
+**Механізм:** `EXTERNAL_INSTALL_PREFIX` стоїть першим у `CMAKE_PREFIX_PATH`,
+тому linker знаходить наш `libm.so` скрипт раніше за host `libm` і лінкує EP проти sysroot libm.
+
+Автоматично перестворює скрипт якщо `CMAKE_SYSROOT` змінився.
+
+---
+
 ## Meson-based ExternalProject
 
 Деякі бібліотеки використовують систему збірки Meson (LibCamera, LibPisp, RpiCamApps).
@@ -584,11 +646,32 @@ endif()
 
 ### OpenCV
 
-Стандартні комп'ютерно-зорові модули збираються завжди.
-Опційні залежності від зовнішніх бібліотек контролюються через:
+Надає **41 imported target** у просторі `OpenCV::`:
+
+**Core (13):** `OpenCV::opencv_core`, `opencv_imgproc`, `opencv_imgcodecs`, `opencv_highgui`,
+`opencv_videoio`, `opencv_video`, `opencv_features2d`, `opencv_calib3d`, `opencv_objdetect`,
+`opencv_dnn`, `opencv_ml`, `opencv_flann`, `opencv_photo`
+
+**Contrib (28, лише при `OPENCV_ENABLE_CONTRIB=ON`):**
+`opencv_aruco`, `opencv_bgsegm`, `opencv_bioinspired`, `opencv_ccalib`, `opencv_datasets`,
+`opencv_dnn_objdetect`, `opencv_dnn_superres`, `opencv_dpm`, `opencv_face`, `opencv_freetype`,
+`opencv_fuzzy`, `opencv_hdf`, `opencv_hfs`, `opencv_img_hash`, `opencv_intensity_transform`,
+`opencv_line_descriptor`, `opencv_mcc`, `opencv_optflow`, `opencv_ovis`, `opencv_phase_unwrapping`,
+`opencv_plot`, `opencv_quality`, `opencv_rapid`, `opencv_reg`, `opencv_rgbd`, `opencv_saliency`,
+`opencv_sfm`, `opencv_shape`, `opencv_stereo`, `opencv_structured_light`, `opencv_superres`,
+`opencv_surface_matching`, `opencv_text`, `opencv_tracking`, `opencv_videostab`, `opencv_viz`,
+`opencv_wechat_qrcode`, `opencv_xfeatures2d`, `opencv_ximgproc`, `opencv_xobjdetect`, `opencv_xphoto`
+
+Деякі contrib-модулі потребують зовнішніх залежностей у sysroot/системі:
+`opencv_viz` (VTK), `opencv_ovis` (OGRE3D), `opencv_sfm` (ceres-solver), `opencv_text` (Tesseract),
+`opencv_hdf` (libhdf5), `opencv_freetype` (FreeType2). За їх відсутності — модуль не збирається,
+решта працює нормально.
+
+Опційні залежності від зовнішніх бібліотек:
 
 | Опція | За замовч. | Опис |
 |---|---|---|
+| `OPENCV_ENABLE_CONTRIB` | `ON` | Включати opencv_contrib модулі |
 | `OPENCV_WITH_FFMPEG` | `OFF` | Підтримка FFmpeg (потребує ffmpeg dev-libs у sysroot/системі) |
 | `OPENCV_WITH_OPENCL` | `OFF` | Підтримка OpenCL (потребує OpenCL ICD loader у sysroot/системі) |
 
@@ -705,6 +788,7 @@ else()
         )
 
         ep_imported_library_from_ep(New::New libnew_ep "${_new_lib}" "${_new_inc}")
+        ep_track_cmake_file(libnew_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

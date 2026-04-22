@@ -34,8 +34,26 @@ set(LIBCAMERA_GIT_REPO
 
 # ---------------------------------------------------------------------------
 
-set(_libcamera_lib  "${EXTERNAL_INSTALL_PREFIX}/lib/libcamera.so")
-set(_libcamera_inc  "${EXTERNAL_INSTALL_PREFIX}/include")
+set(_libcamera_lib      "${EXTERNAL_INSTALL_PREFIX}/lib/libcamera.so")
+set(_libcamera_base_lib "${EXTERNAL_INSTALL_PREFIX}/lib/libcamera-base.so")
+set(_libcamera_inc      "${EXTERNAL_INSTALL_PREFIX}/include")
+
+# libcamera складається з двох бібліотек: libcamera-base.so (Thread, EventDispatcher тощо)
+# та libcamera.so. Цей макрос створює обидва IMPORTED таргети і прописує залежність
+# libcamera::libcamera → libcamera::libcamera-base.
+macro(_libcamera_make_base_target ep_name_or_empty)
+    if(ep_name_or_empty AND TARGET ${ep_name_or_empty})
+        ep_imported_library_from_ep(
+            libcamera::libcamera-base ${ep_name_or_empty}
+            "${_libcamera_base_lib}" "${_libcamera_inc}")
+    else()
+        ep_imported_library(
+            libcamera::libcamera-base
+            "${_libcamera_base_lib}" "${_libcamera_inc}")
+    endif()
+    set_property(TARGET libcamera::libcamera APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES libcamera::libcamera-base)
+endmacro()
 
 if(USE_SYSTEM_LIBCAMERA)
     # ── Системна бібліотека / sysroot ───────────────────────────────────────
@@ -79,6 +97,7 @@ else()
     elseif(EXISTS "${_libcamera_lib}")
         # libcamera не має LibcameraConfig.cmake — перевіряємо .so напряму
         ep_imported_library(libcamera::libcamera "${_libcamera_lib}" "${_libcamera_inc}")
+        _libcamera_make_base_target("")
         message(STATUS "[LibCamera] Знайдено .so у ${EXTERNAL_INSTALL_PREFIX}")
 
     else()
@@ -191,7 +210,7 @@ endif()
                 "-DSRC=${EXTERNAL_INSTALL_PREFIX}/include/libcamera/libcamera"
                 "-DDST=${EXTERNAL_INSTALL_PREFIX}/include/libcamera"
                 -P "${_libcamera_flatten_script}"
-            BUILD_BYPRODUCTS "${_libcamera_lib}"
+            BUILD_BYPRODUCTS "${_libcamera_lib}" "${_libcamera_base_lib}"
             LOG_DOWNLOAD    ON
             LOG_CONFIGURE   ON
             LOG_BUILD       ON
@@ -200,7 +219,9 @@ endif()
 
     ep_imported_library_from_ep(
         libcamera::libcamera libcamera_ep "${_libcamera_lib}" "${_libcamera_inc}")
+    _libcamera_make_base_target(libcamera_ep)
 
+    ep_track_cmake_file(libcamera_ep "${CMAKE_CURRENT_LIST_FILE}")
     ep_prestamp_git(libcamera_ep "${EP_SOURCES_DIR}/libcamera" "${LIBCAMERA_VERSION}")
 
     unset(_libcamera_meson)
@@ -213,4 +234,5 @@ endif()
 endif()
 
 unset(_libcamera_lib)
+unset(_libcamera_base_lib)
 unset(_libcamera_inc)

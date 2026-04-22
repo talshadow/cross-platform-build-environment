@@ -176,7 +176,13 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/external/ExternalDeps.cmake")
 
 # Лінкування
 target_link_libraries(my_app PRIVATE PNG::PNG JPEG::JPEG OpenSSL::SSL)
+target_link_libraries(my_app PRIVATE OpenCV::opencv_core OpenCV::opencv_imgproc)
+target_link_libraries(my_app PRIVATE libcamera::libcamera)  # libcamera-base підтягується автоматично
 ```
+
+OpenCV надає 41 таргет у просторі `OpenCV::`:
+- **Core (13):** `opencv_core`, `opencv_imgproc`, `opencv_imgcodecs`, `opencv_highgui`, `opencv_videoio`, `opencv_video`, `opencv_features2d`, `opencv_calib3d`, `opencv_objdetect`, `opencv_dnn`, `opencv_ml`, `opencv_flann`, `opencv_photo`
+- **Contrib (28):** `opencv_aruco`, `opencv_bgsegm`, `opencv_bioinspired`, `opencv_ccalib`, `opencv_datasets`, `opencv_dnn_objdetect`, `opencv_dnn_superres`, `opencv_dpm`, `opencv_face`, `opencv_freetype`, `opencv_fuzzy`, `opencv_hdf`, `opencv_hfs`, `opencv_img_hash`, `opencv_intensity_transform`, `opencv_line_descriptor`, `opencv_mcc`, `opencv_optflow`, `opencv_ovis`, `opencv_phase_unwrapping`, `opencv_plot`, `opencv_quality`, `opencv_rapid`, `opencv_reg`, `opencv_rgbd`, `opencv_saliency`, `opencv_sfm`, `opencv_shape`, `opencv_stereo`, `opencv_structured_light`, `opencv_superres`, `opencv_surface_matching`, `opencv_text`, `opencv_tracking`, `opencv_videostab`, `opencv_viz`, `opencv_wechat_qrcode`, `opencv_xfeatures2d`, `opencv_ximgproc`, `opencv_xobjdetect`, `opencv_xphoto`
 
 Повний список `USE_SYSTEM_*` опцій (за замовч. `OFF`, окрім відмічених):
 
@@ -190,6 +196,28 @@ target_link_libraries(my_app PRIVATE PNG::PNG JPEG::JPEG OpenSSL::SSL)
 `USE_SYSTEM_RPICAMAPPS`.
 
 SuperBuild: `-DSUPERBUILD=ON` — збирає deps і основний проєкт як окремі ExternalProject.
+
+## Управління збіркою EP-бібліотек
+
+Кожна бібліотека має два допоміжні таргети:
+
+```bash
+# Перебілдити бібліотеку після ручної правки сорців у EP_SOURCES_DIR
+# (configure + build + install, download пропускається):
+cmake --build build/rpi4-release --target opencv_ep-rebuild
+cmake --build build/rpi4-release
+
+# Перезапустити з нуля після помилки завантаження або зміни cmake-аргументів:
+cmake --build build/rpi4-release --target opencv_ep-reset
+cmake --build build/rpi4-release
+```
+
+| Таргет | Видаляє стампи | Коли використовувати |
+|---|---|---|
+| `<ep>-rebuild` | configure + build + install | Змінено сорці в `EP_SOURCES_DIR` |
+| `<ep>-reset` | всі (включно з download) | Помилка завантаження, зміна cmake-аргументів |
+
+Авторебілд при зміні `Lib*.cmake`: якщо змінено конфігурацію бібліотеки (наприклад, додано cmake-прапор) — наступний `cmake --build` автоматично перезапустить configure + rebuild без додаткових команд.
 
 ## Структура директорій збірки
 

@@ -84,6 +84,7 @@ else()
         )
 
         ep_imported_library_from_ep(ZLIB::ZLIB zlib_ep "${_zlib_lib}" "${_zlib_inc}")
+        ep_track_cmake_file(zlib_ep "${CMAKE_CURRENT_LIST_FILE}")
 
         if(ZLIB_USE_GIT)
             ep_prestamp_git(zlib_ep "${EP_SOURCES_DIR}/zlib" "v${ZLIB_VERSION}")

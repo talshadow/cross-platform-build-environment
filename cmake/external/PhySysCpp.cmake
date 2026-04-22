@@ -73,6 +73,7 @@ else()
 
         ep_imported_interface_from_ep(
             physfs-hpp::physfs-hpp physfscpp_ep "${_physfscpp_inc}")
+        ep_track_cmake_file(physfscpp_ep "${CMAKE_CURRENT_LIST_FILE}")
 
         unset(_physfscpp_ep_deps)
     endif()

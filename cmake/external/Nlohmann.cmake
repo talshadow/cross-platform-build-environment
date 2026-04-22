@@ -69,6 +69,7 @@ else()
 
         ep_imported_interface_from_ep(
             nlohmann_json::nlohmann_json nlohmann_ep "${_nlohmann_inc}")
+        ep_track_cmake_file(nlohmann_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

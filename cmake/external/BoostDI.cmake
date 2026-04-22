@@ -77,6 +77,7 @@ else()
         )
 
         ep_imported_interface_from_ep(boost::di boostdi_ep "${_boostdi_inc}")
+        ep_track_cmake_file(boostdi_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 

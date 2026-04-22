@@ -15,7 +15,7 @@
 
 option(USE_SYSTEM_LIBPNG
     "Використовувати системний libpng (find_package) замість збірки з джерел"
-    OFF)
+    ON)
 
 set(LIBPNG_VERSION  "1.6.43"
     CACHE STRING "Версія libpng для збірки з джерел")
@@ -80,6 +80,7 @@ else()
         )
 
         ep_imported_library_from_ep(PNG::PNG libpng_ep "${_png_lib}" "${_png_inc}")
+        ep_track_cmake_file(libpng_ep "${CMAKE_CURRENT_LIST_FILE}")
     endif()
 endif()
 
