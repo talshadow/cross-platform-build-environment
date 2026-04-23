@@ -42,6 +42,11 @@ else()
 
     if(easy_profiler_FOUND)
         message(STATUS "[EasyProfiler] Знайдено готову бібліотеку у ${EXTERNAL_INSTALL_PREFIX}")
+        # easy_profiler деяких версій не експортує namespaced target через cmake config —
+        # гарантуємо існування easy_profiler::easy_profiler незалежно від якості конфіга.
+        if(NOT TARGET easy_profiler::easy_profiler)
+            ep_imported_library(easy_profiler::easy_profiler "${_ep_lib}" "${_ep_inc}")
+        endif()
 
     elseif(EXISTS "${_ep_lib}")
         ep_imported_library(easy_profiler::easy_profiler "${_ep_lib}" "${_ep_inc}")
