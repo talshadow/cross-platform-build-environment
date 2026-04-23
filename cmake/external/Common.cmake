@@ -479,6 +479,9 @@ function(_ep_make_sync_target ep_name)
     if(NOT TARGET ${_sync})
         add_library(${_sync} INTERFACE)
         add_dependencies(${_sync} ${ep_name})
+        # Register so ep_target_add_compile_deps can depend directly on the
+        # real EP custom target without traversing INTERFACE_LINK_LIBRARIES.
+        set_property(GLOBAL APPEND PROPERTY _EP_BUILD_TARGETS "${ep_name}")
     endif()
 endfunction()
 
@@ -519,43 +522,26 @@ endfunction()
 # Ключовий факт: add_dependencies(A B) впливає на cmake_object_order_depends_target
 # тільки якщо B — реальна CMake ціль (add_custom_target або executable/library),
 # але НЕ INTERFACE-бібліотека. _ep_sync_* є INTERFACE — тому ігнорується.
-# Натомість ця функція витягує ім'я реального EP (add_custom_target від
-# ExternalProject_Add) з назви _ep_sync_<ep_name> і залежить від нього напряму.
-#
-# Бере список бібліотек з LINK_LIBRARIES самого <target> — викликати після
-# target_link_libraries.
+# Тому залежимо напряму від реального EP (add_custom_target від ExternalProject_Add),
+# чиї імена реєструє _ep_make_sync_target у глобальній властивості _EP_BUILD_TARGETS.
+# Якщо EP вже встановлено (find_package знайшов) — ExternalProject_Add не викликається,
+# _ep_make_sync_target не викликається, реєстр порожній — compile просто йде без блокування.
 #
 # Використання:
 #   target_link_libraries(my_app PRIVATE OpenCV::opencv_core ...)
 #   ep_target_add_compile_deps(my_app)
 # ---------------------------------------------------------------------------
 function(ep_target_add_compile_deps main_target)
-    get_target_property(_libs "${main_target}" LINK_LIBRARIES)
-    if(NOT _libs)
-        return()
-    endif()
-    foreach(_lib IN LISTS _libs)
-        if(NOT TARGET "${_lib}")
-            continue()
+    # Read the registry populated by _ep_make_sync_target at configuration time.
+    # The registry only contains EPs that are actually being built (i.e.
+    # ExternalProject_Add fired). When a library is already installed and
+    # find_package succeeds, _ep_make_sync_target is never called, the EP
+    # custom target doesn't exist, and there's nothing to wait for — correct.
+    get_property(_ep_targets GLOBAL PROPERTY _EP_BUILD_TARGETS)
+    foreach(_ep IN LISTS _ep_targets)
+        if(TARGET "${_ep}")
+            add_dependencies("${main_target}" "${_ep}")
         endif()
-        get_target_property(_iface_libs "${_lib}" INTERFACE_LINK_LIBRARIES)
-        if(NOT _iface_libs)
-            continue()
-        endif()
-        foreach(_dep IN LISTS _iface_libs)
-            if(NOT TARGET "${_dep}")
-                continue()
-            endif()
-            if("${_dep}" MATCHES "^_ep_sync_(.*)")
-                # _ep_sync_<ep_name> — INTERFACE lib, не впливає на compile step.
-                # Залежимо від самого EP (add_custom_target) — він потрапляє в
-                # cmake_object_order_depends_target і блокує компіляцію.
-                set(_ep_name "${CMAKE_MATCH_1}")
-                if(TARGET "${_ep_name}")
-                    add_dependencies("${main_target}" "${_ep_name}")
-                endif()
-            endif()
-        endforeach()
     endforeach()
 endfunction()
 

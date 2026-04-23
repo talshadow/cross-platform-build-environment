@@ -14,6 +14,8 @@ target_link_libraries(test_imgproc PRIVATE
     OpenCV::opencv_core
 )
 
+ep_target_add_compile_deps(test_imgproc)
+
 target_enable_warnings(test_imgproc)
 
 include(GoogleTest)
