@@ -510,13 +510,17 @@ endfunction()
 # ---------------------------------------------------------------------------
 # ep_target_add_compile_deps(<target>)
 #
-# Явна ORDER_ONLY залежність між compile-кроком <target> та EP-sync цілями
-# бібліотек, від яких він залежить.
+# Явна ORDER_ONLY залежність compile-кроків <target> на ExternalProject цілі.
 #
 # Причина: CMake НЕ propagates utility-deps з INTERFACE_LINK_LIBRARIES
 # IMPORTED-таргетів на compile-кроки споживача. Ninja починає компіляцію
-# до того як EP встановив заголовки. Цей виклик виправляє gap через явний
-# add_dependencies(<target> _ep_sync_X) для кожної ep_sync цілі.
+# до того як EP встановив заголовки і бібліотеки.
+#
+# Ключовий факт: add_dependencies(A B) впливає на cmake_object_order_depends_target
+# тільки якщо B — реальна CMake ціль (add_custom_target або executable/library),
+# але НЕ INTERFACE-бібліотека. _ep_sync_* є INTERFACE — тому ігнорується.
+# Натомість ця функція витягує ім'я реального EP (add_custom_target від
+# ExternalProject_Add) з назви _ep_sync_<ep_name> і залежить від нього напряму.
 #
 # Бере список бібліотек з LINK_LIBRARIES самого <target> — викликати після
 # target_link_libraries.
@@ -539,8 +543,17 @@ function(ep_target_add_compile_deps main_target)
             continue()
         endif()
         foreach(_dep IN LISTS _iface_libs)
-            if(TARGET "${_dep}" AND "${_dep}" MATCHES "^_ep_sync_")
-                add_dependencies("${main_target}" "${_dep}")
+            if(NOT TARGET "${_dep}")
+                continue()
+            endif()
+            if("${_dep}" MATCHES "^_ep_sync_(.*)")
+                # _ep_sync_<ep_name> — INTERFACE lib, не впливає на compile step.
+                # Залежимо від самого EP (add_custom_target) — він потрапляє в
+                # cmake_object_order_depends_target і блокує компіляцію.
+                set(_ep_name "${CMAKE_MATCH_1}")
+                if(TARGET "${_ep_name}")
+                    add_dependencies("${main_target}" "${_ep_name}")
+                endif()
             endif()
         endforeach()
     endforeach()
