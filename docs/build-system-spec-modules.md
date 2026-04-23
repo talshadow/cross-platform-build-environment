@@ -369,17 +369,21 @@ ep_check_binary_deps(<binary_path> [<out_var>])
 | Параметр | Тип | Обов'язковий | Опис |
 |---|---|---|---|
 | `binary_path` | шлях | так | шлях до бінарника або `.so` |
-| `out_var` | змінна | ні | якщо вказано — записує повні шляхи всіх знайдених бібліотек (без MISSING, без дублів) |
+| `out_var` | змінна | ні | якщо вказано — записує повні шляхи EP бібліотек для деплою (без TOOLCHAIN при крос-збірці, без MISSING, без дублів) |
 
 #### Категорії залежностей
 
 | Мітка | Джерело | Рекурсія |
 |---|---|---|
 | `[EP]` | `EXTERNAL_INSTALL_PREFIX/lib` | так |
-| `[TOOLCHAIN]` | директорія компілятора (`gcc -print-libgcc-file-name`) | так |
+| `[TOOLCHAIN]` | директорія компілятора (`gcc -print-libgcc-file-name`) | тільки без sysroot |
 | `[SYSROOT]` | `CMAKE_SYSROOT/lib`, `/usr/lib` + multiarch | ні (листовий вузол) |
 | `[SYSTEM]` | `/lib`, `/usr/lib`, `/lib64`, `/usr/lib64` + multiarch | ні (листовий вузол) |
 | `[MISSING]` | не знайдено жодним шляхом | — |
+
+> **Крос-збірка (`CMAKE_SYSROOT` задано):** бібліотеки категорії `[TOOLCHAIN]` (libstdc++,
+> libgcc_s тощо) **не включаються** у deploy list і рекурсія по них не відбувається —
+> вони вже присутні на цільовій платформі в правильній версії.
 
 #### Зовнішні залежності
 
@@ -448,6 +452,93 @@ endforeach()
 
 ---
 
+## InstallHelpers.cmake
+
+### project_setup_install
+
+```cmake
+project_setup_install(<target>)
+```
+
+Налаштовує кастомну інсталяцію головного виконуваного файлу.
+Підключається автоматично через `cmake/BuildConfig.cmake`.
+
+#### Параметри
+
+| Параметр | Тип | Обов'язковий | Опис |
+|---|---|---|---|
+| `target` | ім'я CMake цілі | так | ціль для інсталяції |
+
+#### Цілі що створюються
+
+| Ціль | Умова | Призначення |
+|---|---|---|
+| `install_<target>` | завжди | Копіює виконуваний файл і EP залежності |
+| `install_<target>_stripped` | тільки `RelWithDebInfo` | Те саме + strip debug-інформації |
+
+#### Структура директорій інсталяції
+
+```
+${CMAKE_BINARY_DIR}/
+├── install_<BuildType>/
+│   ├── bin/    — виконуваний файл
+│   └── lib/    — EP залежності (з symlink-chain)
+│
+└── install_RelWithDebInfo_stripped/    ← тільки для RelWithDebInfo
+    ├── bin/    — виконуваний файл (--strip-all)
+    └── lib/    — залежності (--strip-debug, симлінки пропускаються)
+```
+
+#### Реалізація
+
+Обидві цілі запускають `cmake/install_project.cmake` через `add_custom_target` з
+`cmake -P`. Аналіз залежностей виконується через `ep_check_binary_deps` (BinaryDeps.cmake)
+у момент запуску цілі — після збірки, а не під час конфігурації.
+
+При стрипуванні:
+- `--strip-all` для виконуваного файлу (видаляє всі символи та налагоджувальну інформацію)
+- `--strip-debug` для кожної `.so` (зберігає таблицю символів для `dlopen`)
+- Симлінки пропускаються
+
+#### Зовнішні залежності
+
+| Змінна | Звідки | Призначення |
+|---|---|---|
+| `EXTERNAL_INSTALL_PREFIX` | `cmake/external/Common.cmake` | пошук EP бібліотек |
+| `CMAKE_READELF` | toolchain або `find_program(readelf)` | аналіз ELF залежностей |
+| `CMAKE_STRIP` | toolchain або системний | стрипування |
+| `CMAKE_SYSROOT` | toolchain файл | класифікація sysroot бібліотек |
+| `CMAKE_INSTALL_BINDIR` / `LIBDIR` | `GNUInstallDirs` | відносні шляхи (bin/, lib/) |
+
+#### Помилки
+
+| Умова | Поведінка |
+|---|---|
+| `target` не існує | `FATAL_ERROR` |
+| `cmake/install_project.cmake` не знайдено | `FATAL_ERROR` |
+| `DO_STRIP=ON` + `CMAKE_STRIP` не передано | `WARNING`, стрипування пропускається |
+
+#### Приклади
+
+```cmake
+add_executable(opencv_example main.cpp)
+target_link_libraries(opencv_example PRIVATE OpenCV::opencv_core ...)
+ep_target_add_compile_deps(opencv_example)
+project_setup_install(opencv_example)
+# → install_opencv_example, install_opencv_example_stripped (RelWithDebInfo)
+```
+
+```bash
+# Зібрати і встановити
+cmake --build build/rpi4-relwithdebinfo --target opencv_example
+cmake --build build/rpi4-relwithdebinfo --target install_opencv_example
+
+# Стрипована версія для деплою
+cmake --build build/rpi4-relwithdebinfo --target install_opencv_example_stripped
+```
+
+---
+
 ## Сумісність між модулями
 
 | Комбінація | Статус |
@@ -458,3 +549,4 @@ endforeach()
 | `cross_check_cxx_flag` + `target_enable_warnings` | сумісні, незалежні |
 | `GitVersion` при відсутньому git | `WARNING`, повертає fallback/unknown |
 | `BinaryDeps` при відсутньому `readelf` | `FATAL_ERROR` |
+| `InstallHelpers` + `BinaryDeps` | сумісні (InstallHelpers викликає BinaryDeps внутрішньо) |

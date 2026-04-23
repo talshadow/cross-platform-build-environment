@@ -131,6 +131,35 @@ cmake -B build/rpi4 \
 cmake --build build/rpi4 -j$(nproc)
 ```
 
+### Інсталяція артефактів
+
+Після збірки можна запустити кастомну ціль інсталяції яка збирає виконуваний файл
+і всі EP залежності в єдину директорію (готово до розгортання на RPi):
+
+```bash
+# Зібрати виконуваний файл
+cmake --build build/rpi4-relwithdebinfo
+
+# Встановити в build/rpi4-relwithdebinfo/install_RelWithDebInfo/
+cmake --build build/rpi4-relwithdebinfo --target install_opencv_example
+
+# Стрипована версія (зменшений розмір, без налагоджувальних символів)
+cmake --build build/rpi4-relwithdebinfo --target install_opencv_example_stripped
+```
+
+Результат:
+```
+build/rpi4-relwithdebinfo/install_RelWithDebInfo/
+├── bin/opencv_example
+└── lib/
+    ├── libopencv_core.so → libopencv_core.so.4.10
+    ├── libopencv_core.so.4.10 → libopencv_core.so.4.10.0
+    ├── libopencv_core.so.4.10.0
+    └── ...
+```
+
+Ціль `install_<target>_stripped` доступна **тільки** для пресетів з `RelWithDebInfo`.
+
 ---
 
 ## 4. Сторонні бібліотеки

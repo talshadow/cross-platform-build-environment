@@ -364,6 +364,37 @@ ep_imported_library(PNG::PNG
 
 ---
 
+### ep_target_add_compile_deps(main_target)
+
+Встановлює ORDER_ONLY залежність compile-кроків `<main_target>` на всі
+ExternalProject що наразі збираються.
+
+**Проблема яку вирішує:** CMake не пропагує utility-deps з `INTERFACE_LINK_LIBRARIES`
+IMPORTED-таргетів на compile-кроки споживача. Без виклику цієї функції Ninja
+компілює `<main_target>` паралельно зі збіркою EP — до того як EP встановив
+заголовки і бібліотеки.
+
+**Механізм:**
+- При виклику `ExternalProject_Add` внутрішня функція `_ep_make_sync_target`
+  реєструє ім'я EP у глобальній властивості `_EP_BUILD_TARGETS`.
+- `ep_target_add_compile_deps` читає реєстр і викликає `add_dependencies(main_target, ep)`,
+  де `ep` — реальна ціль `add_custom_target` від `ExternalProject_Add`.
+- Це інжектує залежність безпосередньо в `cmake_object_order_depends_target_<main_target>`,
+  блокуючи компіляцію `.cpp → .o` до завершення EP.
+
+**Поведінка:**
+- Якщо EP вже встановлено (`find_package` знайшов → `ExternalProject_Add` не виклика-
+  ється → `_EP_BUILD_TARGETS` порожній) — compile йде без блокування.
+- Якщо збирається кілька EP — compile блокується до завершення **всіх** зареєстрованих.
+
+```cmake
+# Викликати після target_link_libraries
+target_link_libraries(my_app PRIVATE OpenCV::opencv_core ...)
+ep_target_add_compile_deps(my_app)
+```
+
+---
+
 ### _ep_collect_deps(out_var [ep_target...])
 
 Повертає список тих EP-цілей зі списку що реально оголошені (`TARGET` існує).

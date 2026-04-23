@@ -49,7 +49,8 @@ SupportRaspberryPI/
 │   │   ├── CrossCompileHelpers.cmake # cross_check_cxx_flag(), cross_feature_check()
 │   │   ├── GitVersion.cmake          # git_get_version(), git_get_commit_hash()
 │   │   ├── StripDebug.cmake          # strip_debug / strip_all / strip_split targets
-│   │   └── BinaryDeps.cmake          # ep_check_binary_deps() — рекурсивний аналіз залежностей
+│   │   ├── BinaryDeps.cmake          # ep_check_binary_deps() — рекурсивний аналіз залежностей
+│   │   └── InstallHelpers.cmake       # project_setup_install() — кастомна інсталяція
 │   │
 │   ├── external/
 │   │   ├── Common.cmake        # Спільні утиліти ExternalProject
@@ -78,7 +79,8 @@ SupportRaspberryPI/
 │   │   ├── PhySysCpp.cmake     # physfs-hpp        (physfs-hpp::physfs-hpp) h-only
 │   │   └── RpiCamApps.cmake    # rpicam-apps       (rpicam_apps::camera_app)
 │   │
-│   └── SuperBuild.cmake        # Superbuild режим (всі deps + main як EP)
+│   ├── SuperBuild.cmake        # Superbuild режим (всі deps + main як EP)
+│   └── install_project.cmake     # cmake -P скрипт інсталяції (BinaryDeps + strip)
 │
 ├── scripts/
 │   ├── build-system-install-toolchains.sh   # Встановити крос-компілятори (apt / pacman)
@@ -280,6 +282,25 @@ configure_file(version.h.in version.h @ONLY)
 Якщо `git` не знайдено або тег відсутній — повертається значення `FALLBACK`
 (за замовчуванням `"0.0.0"`). Якщо HEAD недоступний — хеш повертається як
 `"unknown"`.
+
+### InstallHelpers.cmake
+
+```cmake
+include(InstallHelpers)  # підключається автоматично через BuildConfig.cmake
+
+project_setup_install(opencv_example)
+# → install_opencv_example          (bin/ + lib/ з EP залежностями)
+# → install_opencv_example_stripped (той самий набір, зі strip-all/strip-debug)
+#   [тільки для RelWithDebInfo]
+```
+
+Аналіз залежностей через `ep_check_binary_deps` відбувається у момент запуску цілі —
+після збірки, а не під час конфігурації.
+
+```bash
+cmake --build build/rpi4-relwithdebinfo --target install_opencv_example
+cmake --build build/rpi4-relwithdebinfo --target install_opencv_example_stripped
+```
 
 ---
 
