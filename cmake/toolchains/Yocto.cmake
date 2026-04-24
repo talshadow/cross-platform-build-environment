@@ -110,8 +110,10 @@ if(NOT IS_DIRECTORY "${_SYSROOT}")
         "[Yocto] Sysroot не існує: '${_SYSROOT}'")
 endif()
 
-set(CMAKE_SYSROOT        "${_SYSROOT}")
-set(CMAKE_FIND_ROOT_PATH "${_SYSROOT}")
+set(CMAKE_SYSROOT "${_SYSROOT}")
+if(NOT "${_SYSROOT}" IN_LIST CMAKE_FIND_ROOT_PATH)
+    list(APPEND CMAKE_FIND_ROOT_PATH "${_SYSROOT}")
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/common.cmake")
 cross_toolchain_setup_sysroot()
