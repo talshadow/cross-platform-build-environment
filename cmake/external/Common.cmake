@@ -1078,3 +1078,51 @@ cpp_link_args = [${_mcp_link_args}]
     unset(_mc_extra_ldflags_str)
     set(${out_var} ${_cross_args} PARENT_SCOPE)
 endfunction()
+
+# ---------------------------------------------------------------------------
+# _meson_write_overlay(<ep_name> <in_out_args_var> [EXTRA_CXX <flag> ...])
+#
+# Записує overlay-файл _ep_cfg/meson-<ep_name>-overlay.ini і додає
+# --native-file або --cross-file до <in_out_args_var>.
+#
+# Overlay завжди містить:
+#   cpp_args = ['-I${EXTERNAL_INSTALL_PREFIX}/include', <EXTRA_CXX>...]
+# У режимі крос-компіляції додатково:
+#   cpp_args  містить MESON_CROSS_CXX_ARGS (preamble з Common.cmake)
+#   c_args    = [MESON_CROSS_C_ARGS]
+#   c_link_args / cpp_link_args = [MESON_CROSS_LINK_ARGS]
+#
+# ВАЖЛИВО: meson бере [built-in options] з останнього --cross-file/--native-file,
+# тому overlay мусить перераховувати ВСІ cpp_args, а не лише нові.
+# ---------------------------------------------------------------------------
+function(_meson_write_overlay ep_name in_out_args_var)
+    # Розбираємо EXTRA_CXX ...
+    cmake_parse_arguments(_OV "" "" "EXTRA_CXX" ${ARGN})
+
+    # Формуємо рядок додаткових прапорів у форматі meson-списку
+    set(_extra_cxx_str "")
+    foreach(_f ${_OV_EXTRA_CXX})
+        string(APPEND _extra_cxx_str ", '${_f}'")
+    endforeach()
+
+    set(_overlay_file "${CMAKE_BINARY_DIR}/_ep_cfg/meson-${ep_name}-overlay.ini")
+
+    if(CMAKE_CROSSCOMPILING)
+        file(WRITE "${_overlay_file}"
+            "[built-in options]\n"
+            "cpp_args = [${MESON_CROSS_CXX_ARGS}, '-I${EXTERNAL_INSTALL_PREFIX}/include'${_extra_cxx_str}]\n"
+            "c_args = [${MESON_CROSS_C_ARGS}]\n"
+            "c_link_args = [${MESON_CROSS_LINK_ARGS}]\n"
+            "cpp_link_args = [${MESON_CROSS_LINK_ARGS}]\n")
+        list(APPEND ${in_out_args_var} "--cross-file" "${_overlay_file}")
+    else()
+        file(WRITE "${_overlay_file}"
+            "[built-in options]\n"
+            "cpp_args = ['-I${EXTERNAL_INSTALL_PREFIX}/include'${_extra_cxx_str}]\n")
+        list(APPEND ${in_out_args_var} "--native-file" "${_overlay_file}")
+    endif()
+
+    set(${in_out_args_var} ${${in_out_args_var}} PARENT_SCOPE)
+    unset(_extra_cxx_str)
+    unset(_overlay_file)
+endfunction()
