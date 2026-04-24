@@ -95,7 +95,20 @@ else()
         message(STATUS "[LibCamera] Знайдено готову бібліотеку у ${EXTERNAL_INSTALL_PREFIX}")
 
     elseif(EXISTS "${_libcamera_lib}")
-        # libcamera не має LibcameraConfig.cmake — перевіряємо .so напряму
+        # libcamera не має LibcameraConfig.cmake — перевіряємо .so напряму.
+        # RPi-форк встановлює згенеровані IPA-заголовки у include/libcamera/libcamera/
+        # замість include/libcamera/ — виправляємо на місці при конфігурації.
+        set(_lc_nested "${EXTERNAL_INSTALL_PREFIX}/include/libcamera/libcamera")
+        if(IS_DIRECTORY "${_lc_nested}")
+            file(GLOB _lc_nested_items LIST_DIRECTORIES true "${_lc_nested}/*")
+            foreach(_item ${_lc_nested_items})
+                file(COPY "${_item}" DESTINATION "${EXTERNAL_INSTALL_PREFIX}/include/libcamera")
+            endforeach()
+            file(REMOVE_RECURSE "${_lc_nested}")
+            message(STATUS "[LibCamera] Виправлено подвійне вкладення include/libcamera/libcamera → include/libcamera")
+        endif()
+        unset(_lc_nested_items)
+        unset(_lc_nested)
         ep_imported_library(libcamera::libcamera "${_libcamera_lib}" "${_libcamera_inc}")
         _libcamera_make_base_target("")
         message(STATUS "[LibCamera] Знайдено .so у ${EXTERNAL_INSTALL_PREFIX}")
