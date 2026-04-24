@@ -27,7 +27,7 @@ set(NCNN_GIT_REPO
 # ---------------------------------------------------------------------------
 
 set(_ncnn_lib "${EXTERNAL_INSTALL_PREFIX}/lib/libncnn.so")
-set(_ncnn_inc "${EXTERNAL_INSTALL_PREFIX}/include/ncnn")
+set(_ncnn_inc "${EXTERNAL_INSTALL_PREFIX}/include")
 
 if(USE_SYSTEM_NCNN)
     # ── Системна бібліотека ─────────────────────────────────────────────────
@@ -42,6 +42,20 @@ else()
 
     if(ncnn_FOUND)
         message(STATUS "[Ncnn] Знайдено готову бібліотеку у ${EXTERNAL_INSTALL_PREFIX}")
+        # ncnn config встановлює INTERFACE_INCLUDE_DIRECTORIES в include/ncnn —
+        # виправляємо на include щоб #include <ncnn/net.h> працювало коректно.
+        # ALIAS targets не підтримують set_target_properties — перевіряємо через
+        # ALIASED_TARGET.
+        foreach(_t ncnn::ncnn ncnn)
+            if(TARGET ${_t})
+                get_target_property(_aliased ${_t} ALIASED_TARGET)
+                if(NOT _aliased)
+                    set_target_properties(${_t} PROPERTIES
+                        INTERFACE_INCLUDE_DIRECTORIES "${_ncnn_inc}")
+                endif()
+                unset(_aliased)
+            endif()
+        endforeach()
         # Якщо find_package дав target 'ncnn' без namespace — додаємо аліас
         if(TARGET ncnn AND NOT TARGET ncnn::ncnn)
             add_library(ncnn::ncnn ALIAS ncnn)
