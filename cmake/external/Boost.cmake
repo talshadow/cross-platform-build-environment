@@ -29,6 +29,10 @@ option(BOOST_USE_GIT
     "Завантажувати Boost через git clone (OFF = архів з GitHub Releases)"
     OFF)
 
+option(BOOST_LTO
+    "Увімкнути Link-Time Optimization при збірці Boost (lto=on для b2)"
+    ON)
+
 set(BOOST_VERSION  "1.90.0"
     CACHE STRING "Версія Boost для збірки з джерел")
 
@@ -96,6 +100,12 @@ else()
             set(_boost_variant "release")
         endif()
 
+        if(BOOST_LTO)
+            set(_boost_lto "lto=on")
+        else()
+            set(_boost_lto "")
+        endif()
+
         # ── BYPRODUCTS з версованим суфіксом ──────────────────────────────
         # Boost іменує .so як libboost_xxx.so.<major>.<minor>.<patch>
         # Додаємо обидва — для Ninja правильне відстеження залежностей
@@ -152,6 +162,7 @@ ExternalProject_Add(boost_ep
     link=shared
     runtime-link=shared
     variant=${_boost_variant}
+    ${_boost_lto}
     -j${_EP_NPROC}
     INSTALL_COMMAND   ""
     BUILD_BYPRODUCTS
