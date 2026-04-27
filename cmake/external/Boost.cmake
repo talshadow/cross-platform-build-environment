@@ -106,6 +106,24 @@ else()
             set(_boost_lto "")
         endif()
 
+        # ── Architecture / address-model для b2 ───────────────────────────
+        # CMAKE_SYSTEM_PROCESSOR виставляється toolchain файлом для target.
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
+            set(_boost_arch_args "architecture=arm" "address-model=64")
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+            set(_boost_arch_args "architecture=arm" "address-model=32")
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)")
+            set(_boost_arch_args "architecture=x86" "address-model=64")
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^i[3-6]86")
+            set(_boost_arch_args "architecture=x86" "address-model=32")
+        else()
+            set(_boost_arch_args "")
+            if(CMAKE_SYSTEM_PROCESSOR)
+                message(STATUS "[Boost] Невідома архітектура '${CMAKE_SYSTEM_PROCESSOR}' — "
+                    "architecture/address-model не передаються до b2")
+            endif()
+        endif()
+
         # ── BYPRODUCTS з версованим суфіксом ──────────────────────────────
         # Boost іменує .so як libboost_xxx.so.<major>.<minor>.<patch>
         # Додаємо обидва — для Ninja правильне відстеження залежностей
@@ -162,6 +180,7 @@ ExternalProject_Add(boost_ep
     link=shared
     runtime-link=shared
     variant=${_boost_variant}
+    ${_boost_arch_args}
     ${_boost_lto}
     -j${_EP_NPROC}
     INSTALL_COMMAND   ""
