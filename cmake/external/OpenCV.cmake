@@ -37,8 +37,10 @@
 #   OPENCV_WITH_OPENCL     — ON (за замовченням): увімкнути підтримку OpenCL
 #                            Потребує OpenCL ICD loader (libOpenCL.so) і заголовків
 #                            (opencl-headers) в sysroot або на хості.
-#   OPENCV_WITH_V4L2       — ON (за замовченням): увімкнути підтримку V4L2
-#                            Потребує linux/videodev2.h; WITH_LIBV4L також потребує libv4l-dev.
+#   OPENCV_WITH_V4L2       — ON (за замовченням): увімкнути підтримку V4L2 (kernel headers)
+#                            Потребує linux/videodev2.h в sysroot.
+#   OPENCV_WITH_LIBV4L     — ON (за замовченням): використовувати libv4l2 userspace wrapper
+#                            Потребує libv4l-dev в sysroot; якщо відсутній — OpenCV ігнорує.
 #   OPENCV_ENABLE_NONFREE  — ON (за замовченням): non-free алгоритми (SIFT, SURF тощо)
 #                            Увага: патентні обмеження в деяких юрисдикціях.
 #
@@ -64,7 +66,11 @@ option(OPENCV_WITH_OPENCL
     ON)
 
 option(OPENCV_WITH_V4L2
-    "Збирати OpenCV з підтримкою V4L2 (потребує linux/videodev2.h; WITH_LIBV4L також потребує libv4l-dev)"
+    "Збирати OpenCV з підтримкою V4L2 (потребує linux/videodev2.h в sysroot)"
+    ON)
+
+option(OPENCV_WITH_LIBV4L
+    "Використовувати libv4l2 userspace wrapper (потребує libv4l-dev в sysroot; auto-detected)"
     ON)
 
 option(OPENCV_ENABLE_NONFREE
@@ -313,6 +319,7 @@ else()
             -DWITH_FFMPEG=${OPENCV_WITH_FFMPEG}
             -DWITH_OPENCL=${OPENCV_WITH_OPENCL}
             -DWITH_V4L=${OPENCV_WITH_V4L2}
+            -DWITH_LIBV4L=${OPENCV_WITH_LIBV4L}
             -DOPENCV_ENABLE_NONFREE=${OPENCV_ENABLE_NONFREE}
             ${_ocv_tbb_args}
             ${_ocv_contrib_arg}
