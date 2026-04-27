@@ -2,13 +2,15 @@
 #
 # generate(<input.in> [OUTPUT_VAR <var>])
 #
-# Конфігурує файл .in через configure_file(@ONLY) і записує результат у
+# Конфігурує файл .in через configure_file і записує результат у
 #   ${CMAKE_BINARY_DIR}/local_generated/<filename_without_.in>
 #
 # Параметри:
 #   <input.in>        — шлях до .in файлу; відносний — від CMAKE_CURRENT_SOURCE_DIR
 #   OUTPUT_VAR <var>  — (необов'язково) змінна, в яку записується повний шлях
 #                       до згенерованого файлу (зручно для додавання до target_sources)
+#
+# Підстановка: ${VAR} та @VAR@ — обидва формати.
 #
 # Приклад:
 #   generate("config/version.h.in" OUTPUT_VAR _version_h)
@@ -40,7 +42,7 @@ function(generate INPUT_FILE)
     set(_gen_out_dir  "${CMAKE_BINARY_DIR}/local_generated")
     set(_gen_out_file "${_gen_out_dir}/${_gen_out_name}")
 
-    configure_file("${INPUT_FILE}" "${_gen_out_file}" @ONLY)
+    configure_file("${INPUT_FILE}" "${_gen_out_file}")
 
     message(STATUS "[Generate] ${INPUT_FILE} → ${_gen_out_file}")
 
