@@ -10,10 +10,10 @@
 # Опції:
 #   USE_SYSTEM_EIGEN3   — ON: find_package в системі/sysroot
 #                         OFF (за замовч.): зібрати через ExternalProject
-#   EIGEN_USE_BLAS      — ON (за замовч.): передати -DEIGEN_USE_BLAS=ON до EP
-#                         Потребує libblas-dev (або libopenblas-dev) в sysroot.
-#   EIGEN_USE_LAPACKE   — ON (за замовч.): передати -DEIGEN_USE_LAPACKE=ON до EP
-#                         Потребує liblapacke-dev в sysroot.
+#   EIGEN_USE_BLAS      — ON (за замовч.): додати EIGEN_USE_BLAS до INTERFACE_COMPILE_DEFINITIONS
+#                         таргету Eigen3::Eigen. Потребує libblas-dev або libopenblas-dev в sysroot.
+#   EIGEN_USE_LAPACKE   — ON (за замовч.): додати EIGEN_USE_LAPACKE до INTERFACE_COMPILE_DEFINITIONS
+#                         таргету Eigen3::Eigen. Потребує liblapacke-dev в sysroot.
 #
 # Кеш-змінні:
 #   EIGEN3_VERSION    — версія (git тег)
@@ -74,10 +74,7 @@ else()
         # Eigen ігнорує — це теж нешкідливо.
         ep_cmake_args(_eigen_cmake_args
             -DEIGEN_BUILD_DOC=OFF
-            -DEIGEN_BUILD_TESTING=OFF
-            -DEIGEN_BUILD_DEMOS=OFF
-            -DEIGEN_USE_BLAS=${EIGEN_USE_BLAS}
-            -DEIGEN_USE_LAPACKE=${EIGEN_USE_LAPACKE}
+            -DBUILD_TESTING=OFF
         )
 
         # Eigen не має залежностей від наших бібліотек
@@ -96,6 +93,20 @@ else()
 
         ep_imported_interface_from_ep(Eigen3::Eigen eigen3_ep "${_eigen_inc}")
         ep_track_cmake_file(eigen3_ep "${CMAKE_CURRENT_LIST_FILE}")
+    endif()
+endif()
+
+# EIGEN_USE_BLAS / EIGEN_USE_LAPACKE — препроцесорні дефайни для коду користувача,
+# не CMake-опції самого Eigen. Прокидаємо через INTERFACE_COMPILE_DEFINITIONS щоб
+# будь-який таргет що лінкується з Eigen3::Eigen отримав їх автоматично.
+if(TARGET Eigen3::Eigen)
+    if(EIGEN_USE_BLAS)
+        set_property(TARGET Eigen3::Eigen APPEND PROPERTY
+            INTERFACE_COMPILE_DEFINITIONS EIGEN_USE_BLAS)
+    endif()
+    if(EIGEN_USE_LAPACKE)
+        set_property(TARGET Eigen3::Eigen APPEND PROPERTY
+            INTERFACE_COMPILE_DEFINITIONS EIGEN_USE_LAPACKE)
     endif()
 endif()
 
