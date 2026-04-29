@@ -97,17 +97,87 @@ else()
 endif()
 
 # EIGEN_USE_BLAS / EIGEN_USE_LAPACKE — препроцесорні дефайни для коду користувача,
-# не CMake-опції самого Eigen. Прокидаємо через INTERFACE_COMPILE_DEFINITIONS щоб
-# будь-який таргет що лінкується з Eigen3::Eigen отримав їх автоматично.
-if(TARGET Eigen3::Eigen)
+# не CMake-опції самого Eigen. Прокидаємо через INTERFACE_COMPILE_DEFINITIONS лише якщо
+# відповідні бібліотеки і заголовки реально присутні в sysroot або нашому prefix.
+# Перевіряємо .so (не .so.N) як маркер dev-пакету: versioned .so.N є без dev-пакету
+# і недостатній для лінкування.
+if(TARGET Eigen3::Eigen AND (EIGEN_USE_BLAS OR EIGEN_USE_LAPACKE))
+    # Формуємо впорядковані списки директорій для пошуку: спочатку наш prefix,
+    # потім sysroot (або системний /usr/lib при нативній збірці).
+    set(_eigen_lib_dirs "${EXTERNAL_INSTALL_PREFIX}/lib")
+    set(_eigen_inc_dirs "${EXTERNAL_INSTALL_PREFIX}/include")
+    if(CMAKE_SYSROOT)
+        set(_sr_lib "${CMAKE_SYSROOT}/usr/lib")
+        if(CMAKE_LIBRARY_ARCHITECTURE)
+            list(APPEND _eigen_lib_dirs
+                "${_sr_lib}/${CMAKE_LIBRARY_ARCHITECTURE}/blas"
+                "${_sr_lib}/${CMAKE_LIBRARY_ARCHITECTURE}/lapack"
+                "${_sr_lib}/${CMAKE_LIBRARY_ARCHITECTURE}")
+        endif()
+        list(APPEND _eigen_lib_dirs "${_sr_lib}")
+        list(APPEND _eigen_inc_dirs "${CMAKE_SYSROOT}/usr/include")
+        unset(_sr_lib)
+    else()
+        if(CMAKE_LIBRARY_ARCHITECTURE)
+            list(APPEND _eigen_lib_dirs
+                "/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/blas"
+                "/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/lapack"
+                "/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
+        endif()
+        list(APPEND _eigen_lib_dirs "/usr/lib")
+        list(APPEND _eigen_inc_dirs "/usr/include")
+    endif()
+
+    # Хелпер: шукає перший збіг з іменами файлів у заданих директоріях
+    macro(_eigen_find_first _result _dirs)
+        set(${_result} "")
+        foreach(_d ${${_dirs}})
+            foreach(_name ${ARGN})
+                if(EXISTS "${_d}/${_name}")
+                    set(${_result} "${_d}/${_name}")
+                    break()
+                endif()
+            endforeach()
+            if(${_result})
+                break()
+            endif()
+        endforeach()
+    endmacro()
+
     if(EIGEN_USE_BLAS)
-        set_property(TARGET Eigen3::Eigen APPEND PROPERTY
-            INTERFACE_COMPILE_DEFINITIONS EIGEN_USE_BLAS)
+        _eigen_find_first(_blas_lib _eigen_lib_dirs "libblas.so" "libopenblas.so")
+        _eigen_find_first(_blas_hdr _eigen_inc_dirs "cblas.h")
+        if(_blas_lib AND _blas_hdr)
+            set_property(TARGET Eigen3::Eigen APPEND PROPERTY
+                INTERFACE_COMPILE_DEFINITIONS EIGEN_USE_BLAS)
+            message(STATUS "[Eigen3] EIGEN_USE_BLAS: увімкнено (${_blas_lib})")
+        elseif(NOT _blas_lib)
+            message(STATUS "[Eigen3] EIGEN_USE_BLAS: libblas.so/libopenblas.so не знайдено — вимкнено")
+        else()
+            message(STATUS "[Eigen3] EIGEN_USE_BLAS: cblas.h не знайдено — вимкнено")
+        endif()
+        unset(_blas_lib)
+        unset(_blas_hdr)
     endif()
+
     if(EIGEN_USE_LAPACKE)
-        set_property(TARGET Eigen3::Eigen APPEND PROPERTY
-            INTERFACE_COMPILE_DEFINITIONS EIGEN_USE_LAPACKE)
+        _eigen_find_first(_lapacke_lib _eigen_lib_dirs "liblapacke.so")
+        _eigen_find_first(_lapacke_hdr _eigen_inc_dirs "lapacke.h")
+        if(_lapacke_lib AND _lapacke_hdr)
+            set_property(TARGET Eigen3::Eigen APPEND PROPERTY
+                INTERFACE_COMPILE_DEFINITIONS EIGEN_USE_LAPACKE)
+            message(STATUS "[Eigen3] EIGEN_USE_LAPACKE: увімкнено (${_lapacke_lib})")
+        elseif(NOT _lapacke_lib)
+            message(STATUS "[Eigen3] EIGEN_USE_LAPACKE: liblapacke.so не знайдено — вимкнено")
+        else()
+            message(STATUS "[Eigen3] EIGEN_USE_LAPACKE: lapacke.h не знайдено — вимкнено")
+        endif()
+        unset(_lapacke_lib)
+        unset(_lapacke_hdr)
     endif()
+
+    unset(_eigen_lib_dirs)
+    unset(_eigen_inc_dirs)
 endif()
 
 unset(_eigen_inc)
