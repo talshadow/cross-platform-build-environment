@@ -34,9 +34,9 @@ include(Sanitizers)
 include(CrossCompileHelpers)
 include(GitVersion)
 
-git_get_version(PROJECT_GIT_VERSION FALLBACK "0.0.0")
-git_get_commit_hash(PROJECT_GIT_HASH)
-message(STATUS "Версія: ${PROJECT_GIT_VERSION}  коміт: ${PROJECT_GIT_HASH}")
+#git_get_version(PROJECT_GIT_VERSION FALLBACK "0.0.0")
+#git_get_commit_hash(PROJECT_GIT_HASH)
+#message(STATUS "Версія: ${PROJECT_GIT_VERSION}  коміт: ${PROJECT_GIT_HASH}")
 
 # ---------------------------------------------------------------------------
 # Опції збірки

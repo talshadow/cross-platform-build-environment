@@ -8,8 +8,12 @@
 #   Eigen3::Eigen  — INTERFACE IMPORTED (header-only)
 #
 # Опції:
-#   USE_SYSTEM_EIGEN3  — ON: find_package в системі/sysroot
-#                        OFF (за замовч.): зібрати через ExternalProject
+#   USE_SYSTEM_EIGEN3   — ON: find_package в системі/sysroot
+#                         OFF (за замовч.): зібрати через ExternalProject
+#   EIGEN_USE_BLAS      — ON (за замовч.): передати -DEIGEN_USE_BLAS=ON до EP
+#                         Потребує libblas-dev (або libopenblas-dev) в sysroot.
+#   EIGEN_USE_LAPACKE   — ON (за замовч.): передати -DEIGEN_USE_LAPACKE=ON до EP
+#                         Потребує liblapacke-dev в sysroot.
 #
 # Кеш-змінні:
 #   EIGEN3_VERSION    — версія (git тег)
@@ -18,6 +22,14 @@
 option(USE_SYSTEM_EIGEN3
     "Використовувати системний Eigen3 замість встановлення з джерел"
     OFF)
+
+option(EIGEN_USE_BLAS
+    "Увімкнути BLAS-бекенд для Eigen (EIGEN_USE_BLAS; потребує libblas-dev або libopenblas-dev в sysroot)"
+    ON)
+
+option(EIGEN_USE_LAPACKE
+    "Увімкнути LAPACKE-бекенд для Eigen (EIGEN_USE_LAPACKE; потребує liblapacke-dev в sysroot)"
+    ON)
 
 set(EIGEN3_VERSION "3.4.0"
     CACHE STRING "Версія Eigen3 для встановлення з джерел")
@@ -64,10 +76,8 @@ else()
             -DEIGEN_BUILD_DOC=OFF
             -DEIGEN_BUILD_TESTING=OFF
             -DEIGEN_BUILD_DEMOS=OFF
-            # Вимикаємо пошук BLAS/LAPACK — вони є зовнішніми залежностями
-            # яких немає в нашому EXTERNAL_INSTALL_PREFIX.
-            -DEIGEN_USE_BLAS=OFF
-            -DEIGEN_USE_LAPACKE=OFF
+            -DEIGEN_USE_BLAS=${EIGEN_USE_BLAS}
+            -DEIGEN_USE_LAPACKE=${EIGEN_USE_LAPACKE}
         )
 
         # Eigen не має залежностей від наших бібліотек

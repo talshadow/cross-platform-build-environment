@@ -41,6 +41,9 @@
 #                            Потребує linux/videodev2.h в sysroot.
 #   OPENCV_WITH_LIBV4L     — ON (за замовченням): використовувати libv4l2 userspace wrapper
 #                            Потребує libv4l-dev в sysroot; якщо відсутній — OpenCV ігнорує.
+#   OPENCV_WITH_LAPACK     — ON (за замовченням): увімкнути підтримку BLAS/LAPACK у OpenCV
+#                            Потребує libblas-dev і liblapacke-dev (або libopenblas-dev) в sysroot.
+#                            Прискорює SVD, solve та інші операції лінійної алгебри.
 #   OPENCV_ENABLE_NONFREE  — ON (за замовченням): non-free алгоритми (SIFT, SURF тощо)
 #                            Увага: патентні обмеження в деяких юрисдикціях.
 #
@@ -71,6 +74,10 @@ option(OPENCV_WITH_V4L2
 
 option(OPENCV_WITH_LIBV4L
     "Використовувати libv4l2 userspace wrapper (потребує libv4l-dev в sysroot; auto-detected)"
+    ON)
+
+option(OPENCV_WITH_LAPACK
+    "Збирати OpenCV з підтримкою BLAS/LAPACK (потребує libblas-dev і liblapacke-dev або libopenblas-dev в sysroot)"
     ON)
 
 option(OPENCV_ENABLE_NONFREE
@@ -320,6 +327,7 @@ else()
             -DWITH_OPENCL=${OPENCV_WITH_OPENCL}
             -DWITH_V4L=${OPENCV_WITH_V4L2}
             -DWITH_LIBV4L=${OPENCV_WITH_LIBV4L}
+            -DWITH_LAPACK=${OPENCV_WITH_LAPACK}
             -DOPENCV_ENABLE_NONFREE=${OPENCV_ENABLE_NONFREE}
             ${_ocv_tbb_args}
             ${_ocv_contrib_arg}
