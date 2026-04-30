@@ -26,9 +26,9 @@ set(NCNN_GIT_REPO
 
 # ---------------------------------------------------------------------------
 
-# ncnn встановлює DEBUG_POSTFIX "_debug" — у Debug збірці файл libncnn_debug.so
+# ncnn встановлює DEBUG_POSTFIX "d" — у Debug збірці файл libncnnd.so
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(_ncnn_suffix "_debug")
+    set(_ncnn_suffix "d")
 else()
     set(_ncnn_suffix "")
 endif()
