@@ -35,6 +35,100 @@ endif()
 set(_EP_COMMON_INCLUDED TRUE)
 
 # ---------------------------------------------------------------------------
+# _EP_PLATFORM_* — визначення платформи для Lib*.cmake файлів
+#
+# Модульні змінні (не кешуються, не видимі користувачу):
+#   _EP_PLATFORM_RPI    — BOOL: ціль — будь-який Raspberry Pi
+#   _EP_PLATFORM_RPI4   — BOOL: ціль — RPi 4/400/CM4 (BCM2711, VC4 ISP)
+#   _EP_PLATFORM_RPI5   — BOOL: ціль — RPi 5/CM5 (BCM2712, PiSP ISP)
+#   _EP_PLATFORM_YOCTO  — BOOL: ціль — Yocto Linux
+#   _EP_PLATFORM_X86_64 — BOOL: ціль — x86_64
+#   _EP_PLATFORM_ARM    — BOOL: ціль — ARM (aarch64 або arm32)
+#
+# Якщо cross_detect_platform() вже викликано — перевикористовує PLATFORM_*
+# кеш-змінні. Інакше виконує інлайн-детекцію (та сама логіка, без побічних
+# ефектів на кеш).
+# ---------------------------------------------------------------------------
+if(DEFINED PLATFORM_NAME)
+    set(_EP_PLATFORM_RPI    ${PLATFORM_RPI})
+    set(_EP_PLATFORM_RPI4   ${PLATFORM_RPI4})
+    set(_EP_PLATFORM_RPI5   ${PLATFORM_RPI5})
+    set(_EP_PLATFORM_YOCTO  ${PLATFORM_YOCTO})
+    set(_EP_PLATFORM_X86_64 ${PLATFORM_X86_64})
+    set(_EP_PLATFORM_ARM    ${PLATFORM_ARM})
+else()
+    set(_ep_pd_rpi   FALSE)
+    set(_ep_pd_rpi4  FALSE)
+    set(_ep_pd_rpi5  FALSE)
+    set(_ep_pd_yocto FALSE)
+    set(_ep_pd_name  "Unknown")
+
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|armv[6-8]|^arm")
+        set(_ep_pd_arm TRUE)
+        set(_ep_pd_x86 FALSE)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+        set(_ep_pd_arm FALSE)
+        set(_ep_pd_x86 TRUE)
+    else()
+        set(_ep_pd_arm FALSE)
+        set(_ep_pd_x86 FALSE)
+    endif()
+
+    if(CMAKE_CROSSCOMPILING)
+        get_filename_component(_ep_pd_tc "${CMAKE_TOOLCHAIN_FILE}" NAME_WE)
+        if(_ep_pd_tc MATCHES "RaspberryPi([0-9]+)")
+            set(_ep_pd_rpi  TRUE)
+            set(_ep_pd_name "RPi${CMAKE_MATCH_1}")
+        elseif(_ep_pd_tc MATCHES "Yocto")
+            set(_ep_pd_yocto TRUE)
+            set(_ep_pd_name  "Yocto")
+        else()
+            set(_ep_pd_name "${_ep_pd_tc}")
+        endif()
+        unset(_ep_pd_tc)
+    else()
+        if(_ep_pd_arm AND EXISTS "/proc/device-tree/model")
+            file(READ "/proc/device-tree/model" _ep_pd_model)
+            if(_ep_pd_model MATCHES "Raspberry Pi ([0-9]+)")
+                set(_ep_pd_rpi  TRUE)
+                set(_ep_pd_name "RPi${CMAKE_MATCH_1}")
+            elseif(_ep_pd_model MATCHES "Raspberry Pi")
+                set(_ep_pd_rpi  TRUE)
+                set(_ep_pd_name "RPi")
+            endif()
+            unset(_ep_pd_model)
+        elseif(_ep_pd_x86)
+            set(_ep_pd_name "Linux-x86_64")
+        else()
+            set(_ep_pd_name "Linux-${CMAKE_SYSTEM_PROCESSOR}")
+        endif()
+    endif()
+
+    if(_ep_pd_name MATCHES "^RPi([0-9]+)")
+        if(CMAKE_MATCH_1 STREQUAL "4")
+            set(_ep_pd_rpi4 TRUE)
+        elseif(CMAKE_MATCH_1 STREQUAL "5")
+            set(_ep_pd_rpi5 TRUE)
+        endif()
+    endif()
+
+    set(_EP_PLATFORM_RPI    ${_ep_pd_rpi})
+    set(_EP_PLATFORM_RPI4   ${_ep_pd_rpi4})
+    set(_EP_PLATFORM_RPI5   ${_ep_pd_rpi5})
+    set(_EP_PLATFORM_YOCTO  ${_ep_pd_yocto})
+    set(_EP_PLATFORM_X86_64 ${_ep_pd_x86})
+    set(_EP_PLATFORM_ARM    ${_ep_pd_arm})
+
+    unset(_ep_pd_rpi)
+    unset(_ep_pd_rpi4)
+    unset(_ep_pd_rpi5)
+    unset(_ep_pd_yocto)
+    unset(_ep_pd_name)
+    unset(_ep_pd_arm)
+    unset(_ep_pd_x86)
+endif()
+
+# ---------------------------------------------------------------------------
 # Кількість паралельних задач
 # ---------------------------------------------------------------------------
 ProcessorCount(_EP_NPROC)

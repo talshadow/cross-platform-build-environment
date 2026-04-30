@@ -158,10 +158,16 @@ else()
             EXTRA_CXX -Wno-error=array-bounds)
 
         # libcamera pipeline handlers.
-        # Завжди включаємо rpi/vc4 — потрібен для генерації control_ids_rpi.yaml,
-        # без якого controls::rpi namespace не існує і rpicam-apps не компілюється.
+        # rpi/vc4 завжди включається: генерує control_ids_rpi.yaml, без якого
+        # controls::rpi namespace не існує і rpicam-apps не компілюється.
+        # rpi/pisp додається для RPi5 (BCM2712, PiSP ISP).
         # На x86_64 pipeline збирається (pure C++), але не запускається без хардвару.
         set(_libcamera_pipelines "rpi/vc4")
+        set(_libcamera_ipas      "rpi/vc4")
+        if(_EP_PLATFORM_RPI5)
+            set(_libcamera_pipelines "rpi/vc4,rpi/pisp")
+            set(_libcamera_ipas      "rpi/vc4,rpi/pisp")
+        endif()
 
         # libcamera (RPi fork) встановлює згенеровані IPA-заголовки в
         # include/libcamera/libcamera/ через подвійний subdir у meson.build.
@@ -215,7 +221,7 @@ endforeach()
             --libdir=lib
             --buildtype=${_libcamera_meson_bt}
             -Dpipelines=${_libcamera_pipelines}
-            -Dipas=rpi/vc4
+            -Dipas=${_libcamera_ipas}
             -Dlc-compliance=disabled
             -Dcam=enabled
             -Dqcam=disabled
@@ -253,6 +259,7 @@ endforeach()
     unset(_libcamera_cross_args)
     unset(_libcamera_patch_pc_script)
     unset(_libcamera_pipelines)
+    unset(_libcamera_ipas)
     unset(_libcamera_flatten_script)
     unset(_libcamera_patch_pc_script)
 endif()

@@ -117,7 +117,9 @@ endfunction()
 #                                              "Yocto" | "Ubuntu" | "Debian"
 #                                              | "Linux-aarch64" | "Linux-<proc>"
 #   PLATFORM_CROSS_COMPILE — BOOL: крос-компіляція (хост ≠ ціль)
-#   PLATFORM_RPI           — BOOL: ціль Raspberry Pi (крос або нативна збірка на RPi)
+#   PLATFORM_RPI           — BOOL: ціль Raspberry Pi (будь-яка модель)
+#   PLATFORM_RPI4          — BOOL: ціль RPi 4/400/CM4 (BCM2711, VC4 ISP)
+#   PLATFORM_RPI5          — BOOL: ціль RPi 5/CM5 (BCM2712, PiSP ISP)
 #   PLATFORM_YOCTO         — BOOL: ціль Yocto Linux
 #   PLATFORM_ARM           — BOOL: ціль ARM (aarch64 або arm32) — крос або нативна
 #   PLATFORM_X86_64        — BOOL: ціль x86_64 — крос або нативна
@@ -138,7 +140,7 @@ endfunction()
 # Використання:
 #   cross_detect_platform()
 #   message(STATUS "Target: ${PLATFORM_NAME}")
-#   if(PLATFORM_RPI) ... endif()
+#   if(PLATFORM_RPI4) ... elseif(PLATFORM_RPI5) ... endif()
 # ---------------------------------------------------------------------------
 function(cross_detect_platform)
     set(_cross FALSE)
@@ -207,17 +209,36 @@ function(cross_detect_platform)
         endif()
     endif()
 
+    # Детальні RPi-моделі виводяться з PLATFORM_NAME
+    if(_name MATCHES "^RPi([0-9]+)")
+        if(CMAKE_MATCH_1 STREQUAL "4")
+            set(_rpi4 TRUE)
+            set(_rpi5 FALSE)
+        elseif(CMAKE_MATCH_1 STREQUAL "5")
+            set(_rpi4 FALSE)
+            set(_rpi5 TRUE)
+        else()
+            set(_rpi4 FALSE)
+            set(_rpi5 FALSE)
+        endif()
+    else()
+        set(_rpi4 FALSE)
+        set(_rpi5 FALSE)
+    endif()
+
     set(PLATFORM_NAME          "${_name}"  CACHE STRING "Назва кінцевої платформи" FORCE)
     set(PLATFORM_CROSS_COMPILE  ${_cross}  CACHE BOOL "Крос-компіляція (хост ≠ ціль)" FORCE)
-    set(PLATFORM_RPI            ${_rpi}    CACHE BOOL "Ціль — Raspberry Pi" FORCE)
+    set(PLATFORM_RPI            ${_rpi}    CACHE BOOL "Ціль — Raspberry Pi (будь-яка модель)" FORCE)
+    set(PLATFORM_RPI4           ${_rpi4}   CACHE BOOL "Ціль — RPi 4/400/CM4 (BCM2711, VC4 ISP)" FORCE)
+    set(PLATFORM_RPI5           ${_rpi5}   CACHE BOOL "Ціль — RPi 5/CM5 (BCM2712, PiSP ISP)" FORCE)
     set(PLATFORM_YOCTO          ${_yocto}  CACHE BOOL "Ціль — Yocto Linux" FORCE)
     set(PLATFORM_ARM            ${_arm}    CACHE BOOL "Ціль — ARM-архітектура (aarch64 або arm32)" FORCE)
     set(PLATFORM_X86_64         ${_x86}    CACHE BOOL "x86_64-процесор" FORCE)
 
     message(STATUS
         "[cross_detect_platform] ${_name}"
-        " (cross=${_cross} rpi=${_rpi} yocto=${_yocto}"
-        " arm=${_arm} x86_64=${_x86})")
+        " (cross=${_cross} rpi=${_rpi} rpi4=${_rpi4} rpi5=${_rpi5}"
+        " yocto=${_yocto} arm=${_arm} x86_64=${_x86})")
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -238,6 +259,8 @@ function(cross_get_target_info)
     message(STATUS "  PLATFORM_NAME            : ${PLATFORM_NAME}")
     message(STATUS "  PLATFORM_CROSS_COMPILE   : ${PLATFORM_CROSS_COMPILE}")
     message(STATUS "  PLATFORM_RPI             : ${PLATFORM_RPI}")
+    message(STATUS "  PLATFORM_RPI4            : ${PLATFORM_RPI4}")
+    message(STATUS "  PLATFORM_RPI5            : ${PLATFORM_RPI5}")
     message(STATUS "  PLATFORM_YOCTO           : ${PLATFORM_YOCTO}")
     message(STATUS "  PLATFORM_ARM             : ${PLATFORM_ARM}")
     message(STATUS "  PLATFORM_X86_64          : ${PLATFORM_X86_64}")
