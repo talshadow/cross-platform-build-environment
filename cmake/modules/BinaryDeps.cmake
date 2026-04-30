@@ -1,15 +1,16 @@
 # cmake/modules/BinaryDeps.cmake
 #
 # ep_check_binary_deps(<binary_path> [<out_var>])
+# ep_add_extra_deploy_dir(<abs_path>)
 #
 # Рекурсивно знаходить всі залежності бінарного файлу на динамічні
 # бібліотеки та класифікує їх за джерелом:
 #
-#   [EP]       — з EXTERNAL_INSTALL_PREFIX  ← рекурсія продовжується
-#   [TOOLCHAIN]— з директорії компілятора   ← рекурсія продовжується
-#   [SYSROOT]  — з CMAKE_SYSROOT            ← листовий вузол
-#   [SYSTEM]   — системна бібліотека хоста  ← листовий вузол
-#   [MISSING]  — не знайдено жодним шляхом  ← попередження
+#   [EP]       — з EXTERNAL_INSTALL_PREFIX або extra deploy dirs  ← рекурсія
+#   [TOOLCHAIN]— з директорії компілятора                         ← рекурсія
+#   [SYSROOT]  — з CMAKE_SYSROOT                                  ← листовий
+#   [SYSTEM]   — системна бібліотека хоста                        ← листовий
+#   [MISSING]  — не знайдено жодним шляхом                        ← помилка
 #
 # Рекурсія йде вглиб по EP та TOOLCHAIN бібліотеках до тих пір, поки
 # не вийде за їхні межі (SYSROOT/SYSTEM) або не зустріне вже відвіданий
@@ -18,18 +19,34 @@
 # Якщо передано <out_var> — записує у неї повні шляхи бібліотек EP+TOOLCHAIN
 # (тих що треба деплоїти разом з бінарником). SYSROOT/SYSTEM/MISSING не включаються.
 #
+# ep_add_extra_deploy_dir(<abs_path>)
+#   Реєструє додаткову директорію як джерело бінарних артефактів (не-EP).
+#   Бібліотеки з цих директорій трактуються як [EP] — деплояться і
+#   рекурсивно аналізуються. Викликати до project_setup_install().
+#   На етапі install серіалізується через EP_EXTRA_DEPLOY_DIRS у
+#   runtime_resources_<target>.cmake.
+#
 # Використання:
 #   include(BinaryDeps)
-#   ep_check_binary_deps("/path/to/mybinary")
+#   ep_add_extra_deploy_dir("/opt/vendor-sdk/lib")
 #   ep_check_binary_deps("/path/to/mybinary" ALL_LIBS)
-#   foreach(_lib IN LISTS ALL_LIBS) ... endforeach()
-#   ep_check_binary_deps($<TARGET_FILE:my_target> MYBINARY_DEPS)
 #
 # Залежить від:
 #   CMAKE_READELF           — встановлюється cmake (підтримує cross-build)
 #   EXTERNAL_INSTALL_PREFIX — з cmake/external/Common.cmake
 #   CMAKE_SYSROOT           — з toolchain файлу (опційно)
 #   CMAKE_C_COMPILER        — для пошуку директорії тулчейна
+#   EP_EXTRA_DEPLOY_DIRS    — змінна, встановлена з runtime_resources файлу
+
+# ---------------------------------------------------------------------------
+# ep_add_extra_deploy_dir(<abs_path>)
+# ---------------------------------------------------------------------------
+function(ep_add_extra_deploy_dir path)
+    if(NOT IS_ABSOLUTE "${path}")
+        message(FATAL_ERROR "[BinaryDeps] ep_add_extra_deploy_dir: шлях має бути абсолютним: ${path}")
+    endif()
+    set_property(GLOBAL APPEND PROPERTY _EP_BINARYDEPS_EXTRA_DEPLOY_DIRS "${path}")
+endfunction()
 
 # ---------------------------------------------------------------------------
 # Внутрішній хелпер: будує список директорій для пошуку бібліотек
@@ -45,6 +62,16 @@ function(_ep_binarydeps_build_search_dirs)
     if(DEFINED EXTERNAL_INSTALL_PREFIX AND EXISTS "${EXTERNAL_INSTALL_PREFIX}/lib")
         list(APPEND _ep_dirs "${EXTERNAL_INSTALL_PREFIX}/lib")
     endif()
+
+    # ── EXTRA (не-EP директорії, зареєстровані через ep_add_extra_deploy_dir)
+    # Серіалізуються в runtime_resources файл як EP_EXTRA_DEPLOY_DIRS,
+    # тому доступні тільки якщо той файл вже включено до виклику цієї функції.
+    foreach(_extra IN LISTS EP_EXTRA_DEPLOY_DIRS)
+        if(EXISTS "${_extra}" AND NOT "${_extra}" IN_LIST _ep_dirs)
+            list(APPEND _ep_dirs "${_extra}")
+        endif()
+    endforeach()
+
     set_property(GLOBAL PROPERTY _EP_BINARYDEPS_EP_DIRS "${_ep_dirs}")
 
     # ── TOOLCHAIN ────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@
 #     -DDO_STRIP=<ON|OFF>
 #     -DINSTALL_BINDIR=<rel>             # за замовч. "bin"
 #     -DINSTALL_LIBDIR=<rel>             # за замовч. "lib"
+#     -DRUNTIME_RESOURCES_FILE=<path>    # згенерований cmake-файл з EP_RT_* та EP_EXTRA_DEPLOY_DIRS
 #     -P cmake/install_project.cmake
 
 cmake_minimum_required(VERSION 3.28)
@@ -43,6 +44,18 @@ endif()
 
 set(_bin_dir "${INSTALL_PREFIX}/${INSTALL_BINDIR}")
 set(_lib_dir "${INSTALL_PREFIX}/${INSTALL_LIBDIR}")
+
+# ---------------------------------------------------------------------------
+# Runtime ресурси — завантажуємо ДО ep_check_binary_deps, щоб
+# EP_EXTRA_DEPLOY_DIRS потрапив у _ep_binarydeps_build_search_dirs()
+# при першому виклику (функція кешує директорії після першого запуску).
+# ---------------------------------------------------------------------------
+if(DEFINED RUNTIME_RESOURCES_FILE AND EXISTS "${RUNTIME_RESOURCES_FILE}")
+    include("${RUNTIME_RESOURCES_FILE}")
+else()
+    set(EP_RT_COUNT 0)
+    set(EP_EXTRA_DEPLOY_DIRS "")
+endif()
 
 # ---------------------------------------------------------------------------
 # Збір залежностей через ep_check_binary_deps
@@ -160,15 +173,10 @@ endif()
 #
 # Копіюються ПІСЛЯ strip EP-libs — IPA .so тоді ще не існують у lib/
 # і тому не потрапляють у попередній strip-цикл (lib/*.so*).
+# EP_RT_COUNT та EP_EXTRA_DEPLOY_DIRS вже завантажені на початку скрипту.
 # ---------------------------------------------------------------------------
 set(_rt_dirs_copied 0)
 set(_rt_resigned    0)
-
-if(DEFINED RUNTIME_RESOURCES_FILE AND EXISTS "${RUNTIME_RESOURCES_FILE}")
-    include("${RUNTIME_RESOURCES_FILE}")
-else()
-    set(EP_RT_COUNT 0)
-endif()
 
 set(_rt_plugin_deps_total 0)
 
