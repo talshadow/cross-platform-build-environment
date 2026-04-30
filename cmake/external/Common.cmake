@@ -34,6 +34,10 @@ if(DEFINED _EP_COMMON_INCLUDED)
 endif()
 set(_EP_COMMON_INCLUDED TRUE)
 
+# RuntimeDeps.cmake — підключаємо відразу щоб ep_register_runtime_dirs()
+# був доступний у всіх Lib*.cmake без додаткових include().
+include("${CMAKE_CURRENT_LIST_DIR}/../modules/RuntimeDeps.cmake")
+
 # ---------------------------------------------------------------------------
 # _EP_PLATFORM_* — визначення платформи для Lib*.cmake файлів
 #

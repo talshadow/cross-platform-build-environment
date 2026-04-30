@@ -28,6 +28,7 @@
 #   # → створює: install_opencv_example, install_opencv_example_stripped (RelWithDebInfo)
 
 include(GNUInstallDirs)
+include(RuntimeDeps)
 
 # ---------------------------------------------------------------------------
 # target_add_ep_rpath(<target>)
@@ -69,6 +70,11 @@ function(project_setup_install target)
         set(_build_type "unknown")
     endif()
 
+    # Збираємо runtime-ресурси (IPA модулі, configs, data) транзитивно по
+    # LINK_LIBRARIES. Результат записується у cmake-файл і передається у
+    # install_project.cmake де виконується копіювання і ре-підпис.
+    ep_collect_runtime_resources(${target} _rt_file)
+
     # Аргументи, спільні для обох цілей
     # Змінні часу конфігурації запікаються у рядок; шляхи з пробілами
     # коректно передаються завдяки VERBATIM у add_custom_target.
@@ -81,6 +87,7 @@ function(project_setup_install target)
         "-DCMAKE_SYSROOT=${CMAKE_SYSROOT}"
         "-DINSTALL_BINDIR=${CMAKE_INSTALL_BINDIR}"
         "-DINSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
+        "-DRUNTIME_RESOURCES_FILE=${_rt_file}"
     )
 
     # ── install_<target> ─────────────────────────────────────────────────────

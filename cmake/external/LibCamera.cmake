@@ -240,6 +240,14 @@ endforeach()
             COMMAND ${CMAKE_COMMAND}
                 "-DPREFIX=${EXTERNAL_INSTALL_PREFIX}"
                 -P "${_libcamera_patch_pc_script}"
+            # Зберігаємо приватний ключ підпису IPA у стабільне місце поза build-dir.
+            # Build-dir видаляється при libcamera_ep-reset або cmake --clean.
+            # Ключ потрібен для ре-підпису IPA .so після strip (RuntimeDeps.cmake).
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                "${EXTERNAL_INSTALL_PREFIX}/dependencies/libcamera/key/ipa"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "<BINARY_DIR>/src/ipa/ipa-priv-key.pem"
+                "${EXTERNAL_INSTALL_PREFIX}/dependencies/libcamera/key/ipa/ipa-priv-key.pem"
             BUILD_BYPRODUCTS "${_libcamera_lib}" "${_libcamera_base_lib}"
             LOG_DOWNLOAD    ON
             LOG_CONFIGURE   ON
@@ -263,6 +271,32 @@ endforeach()
     unset(_libcamera_flatten_script)
     unset(_libcamera_patch_pc_script)
 endif()
+
+# ---------------------------------------------------------------------------
+# Runtime ресурси libcamera (USE_SYSTEM=OFF: EP-збірка або вже в prefix)
+#
+# lib/libcamera/   — IPA .so модулі + .sign файли + ipa_*_proxy виконувані
+# share/libcamera/ — конфіги pipeline (rpi/vc4/, rpi/pisp/) та IPA
+# etc/libcamera/   — системні IPA конфіги (tuning файли тощо)
+#
+# NO_STRIP: IPA .so мають SHA256-підпис (ipa_*.so.sign). Strip без ре-підпису
+#   інвалідує підпис → libcamera відмовляється завантажувати плагін.
+# SIGN_KEY: при DO_STRIP=ON RuntimeDeps автоматично виконає strip + resign.
+#   Ключ копіюється з build-dir у dependencies/ при кожному ninja install.
+# ---------------------------------------------------------------------------
+if(NOT USE_SYSTEM_LIBCAMERA AND TARGET libcamera::libcamera)
+    ep_register_runtime_dirs(libcamera::libcamera
+        BASE_DIR "${EXTERNAL_INSTALL_PREFIX}"
+        DIRS
+            lib/libcamera
+            share/libcamera
+            etc/libcamera
+        NO_STRIP
+        SIGN_KEY
+            "${EXTERNAL_INSTALL_PREFIX}/dependencies/libcamera/key/ipa/ipa-priv-key.pem"
+    )
+endif()
+
 endif()
 
 unset(_libcamera_lib)
