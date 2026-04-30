@@ -532,6 +532,8 @@ _ep_cmake_to_meson_buildtype(_meson_bt)
 
 ExternalProject_Add(libfoo_ep
     ...
+    PATCH_COMMAND
+        git apply "${CMAKE_CURRENT_LIST_DIR}/patches/libfoo-my-fix.patch"
     CONFIGURE_COMMAND
         env PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig
         ${_meson_prog} setup
@@ -553,6 +555,27 @@ ExternalProject_Add(libfoo_ep
 - `<BINARY_DIR>` і `<SOURCE_DIR>` — без лапок (CMake роздільник аргументів)
 - `-Dkey=${var}` — без зовнішніх лапок (інакше cmake розбиває на два аргументи)
 - `PKG_CONFIG_PATH` через `env` — забезпечує видимість наших `.pc` файлів для Meson
+
+#### PATCH_COMMAND для Meson-бібліотек
+
+Патчі зберігаються в `cmake/external/patches/` як стандартні unified diff файли
+і генеруються через `git diff` у тимчасовій копії сорців:
+
+```bash
+# Генерація патчу
+cp -r ~/build/.../external_sources/libfoo /tmp/libfoo_patch
+# ... редагуємо файли у /tmp/libfoo_patch ...
+cd /tmp/libfoo_patch && git diff > /path/to/cmake/external/patches/libfoo-my-fix.patch
+```
+
+`PATCH_COMMAND` виконується ExternalProject один раз після `git clone`.
+При `libfoo_ep-reset` (повторний клон) патч застосовується знову автоматично.
+
+Наявні патчі:
+
+| Файл | Бібліотека | Призначення |
+|---|---|---|
+| `libcamera-relocatable-paths.patch` | libcamera | Relocatable IPA/config paths через `dladdr()` |
 
 ---
 
@@ -722,6 +745,38 @@ cmake --preset rpi4-release -DOPENCV_WITH_FFMPEG=ON -DRPI_SYSROOT=/srv/rpi4-sysr
 але не запускається без RPi hardware.
 
 Потребує host-tools: `python3-yaml` та `python3-ply` (генератор IPA protocol).
+
+#### Relocatable paths (патч)
+
+За замовчуванням libcamera прошиває всі шляхи до плагінів та конфігів як
+абсолютні константи під час збірки (`IPA_MODULE_DIR`, `IPA_PROXY_DIR`,
+`IPA_CONFIG_DIR`, `LIBCAMERA_DATA_DIR`). При перенесенні бібліотеки на іншу
+машину або в інший sysroot ці шляхи стають невалідними.
+
+Патч `cmake/external/patches/libcamera-relocatable-paths.patch` усуває цю
+проблему: додає функцію `libcameraInstalledPrefix()` яка через `dladdr()`
+знаходить `libcamera.so` у runtime і будує всі шляхи відносно нього.
+
+| Константа | Було (compile-time) | Стало (runtime) |
+|---|---|---|
+| `IPA_MODULE_DIR` | `<prefix>/lib/libcamera/ipa` | `soDir/../lib/libcamera/ipa` |
+| `IPA_PROXY_DIR` | `<prefix>/lib/libcamera` | `soDir/../lib/libcamera` |
+| `IPA_CONFIG_DIR` | `<prefix>/etc/…:<prefix>/share/…` | `soDir/../etc/…:soDir/../share/…` |
+| `LIBCAMERA_DATA_DIR` | `<prefix>/share/libcamera` | `soDir/../share/libcamera` |
+
+де `soDir` — директорія де фактично знаходиться `libcamera.so` (результат
+`realpath(dirname(dladdr(...))))`).
+
+Патч застосовується автоматично через `PATCH_COMMAND` у `ExternalProject_Add`
+після `git clone`. При `libcamera_ep-reset` (повторний клон) — застосовується
+знову.
+
+Змінені файли:
+- `include/libcamera/internal/source_paths.h` — декларація `libcameraInstalledPrefix()`
+- `src/libcamera/source_paths.cpp` — реалізація
+- `src/libcamera/ipa_manager.cpp` — `IPA_MODULE_DIR` → runtime
+- `src/libcamera/ipa_proxy.cpp` — `IPA_CONFIG_DIR`, `IPA_PROXY_DIR` → runtime
+- `src/libcamera/pipeline_handler.cpp` — `LIBCAMERA_DATA_DIR` → runtime
 
 ---
 

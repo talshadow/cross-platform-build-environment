@@ -1,0 +1,137 @@
+diff --git a/include/libcamera/internal/source_paths.h b/include/libcamera/internal/source_paths.h
+index 14e6471..62da61e 100644
+--- a/include/libcamera/internal/source_paths.h
++++ b/include/libcamera/internal/source_paths.h
+@@ -13,5 +13,6 @@ namespace libcamera::utils {
+ 
+ std::string libcameraBuildPath();
+ std::string libcameraSourcePath();
++std::string libcameraInstalledPrefix();
+ 
+ } /* namespace libcamera::utils */
+diff --git a/src/libcamera/ipa_manager.cpp b/src/libcamera/ipa_manager.cpp
+index 830750d..7fb2b66 100644
+--- a/src/libcamera/ipa_manager.cpp
++++ b/src/libcamera/ipa_manager.cpp
+@@ -141,12 +141,16 @@ IPAManager::IPAManager()
+ 		ipaCount += addDir(ipaBuildPath.c_str(), maxDepth);
+ 	}
+ 
+-	/* Finally try to load IPAs from the installed system path. */
+-	ipaCount += addDir(IPA_MODULE_DIR);
+-
+-	if (!ipaCount)
+-		LOG(IPAManager, Warning)
+-			<< "No IPA found in '" IPA_MODULE_DIR "'";
++	/* Finally try to load IPAs relative to the installed library location. */
++	{
++		std::string prefix = utils::libcameraInstalledPrefix();
++		std::string ipaDir = prefix.empty() ? std::string(IPA_MODULE_DIR)
++						    : prefix + "lib/libcamera/ipa";
++		ipaCount += addDir(ipaDir.c_str());
++		if (!ipaCount)
++			LOG(IPAManager, Warning)
++				<< "No IPA found in '" << ipaDir << "'";
++	}
+ }
+ 
+ IPAManager::~IPAManager() = default;
+diff --git a/src/libcamera/ipa_proxy.cpp b/src/libcamera/ipa_proxy.cpp
+index b5c13a3..2bf332c 100644
+--- a/src/libcamera/ipa_proxy.cpp
++++ b/src/libcamera/ipa_proxy.cpp
+@@ -83,8 +83,12 @@ std::string ipaConfigurationFile(const std::string &ipaName, const std::string &
+ 			return confPath;
+ 
+ 	} else {
+-		/* Else look in the system locations. */
+-		for (const auto &dir : utils::split(IPA_CONFIG_DIR, ":")) {
++		/* Else look in locations resolved relative to the installed library. */
++		std::string prefix = utils::libcameraInstalledPrefix();
++		std::string ipaConfigDir = prefix.empty()
++			? std::string(IPA_CONFIG_DIR)
++			: prefix + "etc/libcamera/ipa:" + prefix + "share/libcamera/ipa";
++		for (const auto &dir : utils::split(ipaConfigDir, ":")) {
+ 			std::string confPath = dir + "/" + ipaName + "/" + name;
+ 			ret = stat(confPath.c_str(), &statbuf);
+ 			if (ret == 0 && (statbuf.st_mode & S_IFMT) == S_IFREG)
+@@ -249,10 +253,15 @@ std::string IPAProxy::resolvePath(const std::string &file) const
+ 		return std::string();
+ 	}
+ 
+-	/* Else try finding the exec target from the install directory. */
+-	std::string proxyPath = std::string(IPA_PROXY_DIR) + proxyFile;
+-	if (!access(proxyPath.c_str(), X_OK))
+-		return proxyPath;
++	/* Else try finding the exec target relative to the installed library. */
++	{
++		std::string prefix = utils::libcameraInstalledPrefix();
++		std::string proxyDir = prefix.empty() ? std::string(IPA_PROXY_DIR)
++						      : prefix + "lib/libcamera";
++		std::string proxyPath = proxyDir + proxyFile;
++		if (!access(proxyPath.c_str(), X_OK))
++			return proxyPath;
++	}
+ 
+ 	return std::string();
+ }
+diff --git a/src/libcamera/pipeline_handler.cpp b/src/libcamera/pipeline_handler.cpp
+index e5f9e55..1f44f85 100644
+--- a/src/libcamera/pipeline_handler.cpp
++++ b/src/libcamera/pipeline_handler.cpp
+@@ -647,9 +647,11 @@ std::string PipelineHandler::configurationFile(const std::string &subdir,
+ 			<< "libcamera is not installed. Loading platform configuration file from '"
+ 			<< confPath << "'";
+ 	} else {
+-		/* Else look in the system locations. */
+-		confPath = std::string(LIBCAMERA_DATA_DIR)
+-				+ "/pipeline/" + subdir + '/' + name;
++		/* Else look relative to the installed library. */
++		std::string prefix = utils::libcameraInstalledPrefix();
++		std::string dataDir = prefix.empty() ? std::string(LIBCAMERA_DATA_DIR)
++						     : prefix + "share/libcamera";
++		confPath = dataDir + "/pipeline/" + subdir + '/' + name;
+ 	}
+ 
+ 	ret = stat(confPath.c_str(), &statbuf);
+diff --git a/src/libcamera/source_paths.cpp b/src/libcamera/source_paths.cpp
+index 1af5386..aa4328e 100644
+--- a/src/libcamera/source_paths.cpp
++++ b/src/libcamera/source_paths.cpp
+@@ -134,6 +134,36 @@ std::string libcameraSourcePath()
+ 	return path + "/";
+ }
+ 
++/**
++ * \brief Retrieve the install prefix of the libcamera shared library
++ *
++ * Uses dladdr() to locate libcamera.so at runtime and returns the install
++ * prefix directory (the parent of the lib/ directory containing the .so).
++ * Unlike libcameraBuildPath(), this works for installed builds and makes
++ * resource paths fully relocatable — no absolute prefix baked in at build time.
++ *
++ * \return The install prefix with trailing slash, or an empty string on failure
++ */
++std::string libcameraInstalledPrefix()
++{
++	Dl_info info;
++
++	int ret = dladdr(reinterpret_cast<void *>(libcameraInstalledPrefix), &info);
++	if (ret == 0 || !info.dli_fname)
++		return std::string();
++
++	/* info.dli_fname = /prefix/lib/libcamera.so.x — go one level up to /prefix */
++	std::string path = std::string(dirname(info.dli_fname)) + "/..";
++
++	char *real = realpath(path.c_str(), nullptr);
++	if (!real)
++		return std::string();
++
++	path = real;
++	free(real);
++	return path + "/";
++}
++
+ } /* namespace utils */
+ 
+ } /* namespace libcamera */

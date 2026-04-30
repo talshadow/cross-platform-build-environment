@@ -203,6 +203,8 @@ endforeach()
             GIT_TAG         "${LIBCAMERA_VERSION}"
             GIT_SHALLOW     ON
             SOURCE_DIR      "${EP_SOURCES_DIR}/libcamera"
+            PATCH_COMMAND
+            git apply "${CMAKE_CURRENT_LIST_DIR}/patches/libcamera-relocatable-paths.patch"
             CONFIGURE_COMMAND
             env
             PKG_CONFIG_PATH=${EXTERNAL_INSTALL_PREFIX}/lib/pkgconfig:${EXTERNAL_INSTALL_PREFIX}/share/pkgconfig

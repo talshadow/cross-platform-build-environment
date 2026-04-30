@@ -61,10 +61,11 @@ source /opt/poky/<ver>/environment-setup-<target>-poky-linux
 ## Структура
 
 ```
-cmake/toolchains/   — toolchain файли для кожної платформи
-cmake/modules/      — CompilerWarnings, Sanitizers, CrossCompileHelpers, GitVersion, StripDebug, BinaryDeps
-cmake/external/     — сторонні бібліотеки через ExternalProject (23 бібліотеки; див. build-system-spec-external.md)
-cmake/SuperBuild.cmake — superbuild режим
+cmake/toolchains/        — toolchain файли для кожної платформи
+cmake/modules/           — CompilerWarnings, Sanitizers, CrossCompileHelpers, GitVersion, StripDebug, BinaryDeps
+cmake/external/          — сторонні бібліотеки через ExternalProject (23 бібліотеки; див. build-system-spec-external.md)
+cmake/external/patches/  — unified diff патчі для EP-бібліотек (застосовуються через PATCH_COMMAND)
+cmake/SuperBuild.cmake   — superbuild режим
 scripts/            — install-toolchains, get-sysroot-*, sync-sysroot, build, deploy
 docs/               — build-system-overview.md, build-system-toolchains.md, build-system-getting-started.md
 src/                — вихідний код (CMakeLists.txt-заглушка)
