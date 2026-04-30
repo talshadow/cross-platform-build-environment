@@ -110,14 +110,19 @@ if(DO_STRIP)
             "${_lib_dir}/*.so*"
         )
         foreach(_lib IN LISTS _installed_libs)
-            if(NOT IS_SYMLINK "${_lib}")
-                execute_process(
-                    COMMAND "${CMAKE_STRIP}" --strip-debug "${_lib}"
-                    RESULT_VARIABLE _res
-                )
-                if(NOT _res EQUAL 0)
-                    message(WARNING "[install_project] strip --strip-debug завершився з кодом ${_res}: ${_lib}")
-                endif()
+            if(IS_SYMLINK "${_lib}")
+                continue()
+            endif()
+            file(READ "${_lib}" _magic OFFSET 0 LIMIT 4 HEX)
+            if(NOT _magic STREQUAL "7f454c46")
+                continue()
+            endif()
+            execute_process(
+                COMMAND "${CMAKE_STRIP}" --strip-debug "${_lib}"
+                RESULT_VARIABLE _res
+            )
+            if(NOT _res EQUAL 0)
+                message(WARNING "[install_project] strip --strip-debug завершився з кодом ${_res}: ${_lib}")
             endif()
         endforeach()
 
@@ -173,6 +178,41 @@ if(EP_RT_COUNT GREATER 0)
             endforeach()
         else()
             message(WARNING "[install_project] Runtime ресурс не знайдено (EP ще не зібрано?): ${_rt_src}")
+        endif()
+    endforeach()
+endif()
+
+# ---------------------------------------------------------------------------
+# Strip залежностей плагінів (скопійованих після основного проходу strip)
+#
+# Другий прохід по lib/ потрібен тому, що plugin deps копіюються в lib/ вже
+# після основного strip-циклу EP-бібліотек. strip --strip-debug ідемпотентний,
+# тому повторне стрипування вже оброблених файлів безпечне.
+# Джерела в EXTERNAL_INSTALL_PREFIX не торкаємось — стрипуємо тільки копії.
+# ---------------------------------------------------------------------------
+set(_rt_plugin_deps_stripped 0)
+
+if(DO_STRIP AND CMAKE_STRIP AND _rt_plugin_deps_total GREATER 0)
+    message(STATUS "[install_project] Стрипування залежностей плагінів")
+    file(GLOB_RECURSE _plugin_dep_libs
+        LIST_DIRECTORIES false
+        "${_lib_dir}/*.so*"
+    )
+    foreach(_lib IN LISTS _plugin_dep_libs)
+        if(IS_SYMLINK "${_lib}")
+            continue()
+        endif()
+        file(READ "${_lib}" _magic OFFSET 0 LIMIT 4 HEX)
+        if(NOT _magic STREQUAL "7f454c46")
+            continue()
+        endif()
+        execute_process(
+            COMMAND "${CMAKE_STRIP}" --strip-debug "${_lib}"
+            RESULT_VARIABLE _res)
+        if(NOT _res EQUAL 0)
+            message(WARNING "[install_project] strip --strip-debug провалено: ${_lib}")
+        else()
+            math(EXPR _rt_plugin_deps_stripped "${_rt_plugin_deps_stripped} + 1")
         endif()
     endforeach()
 endif()
@@ -246,6 +286,9 @@ if(_rt_dirs_copied GREATER 0)
 endif()
 if(_rt_plugin_deps_total GREATER 0)
     message(STATUS "[install_project]   Plugin deps:   ${_rt_plugin_deps_total} бібліотек")
+endif()
+if(_rt_plugin_deps_stripped GREATER 0)
+    message(STATUS "[install_project]   Plugin deps stripped: ${_rt_plugin_deps_stripped}")
 endif()
 if(DO_STRIP)
     message(STATUS "[install_project]   Стрипований:   YES (--strip-all bin, --strip-debug libs)")
