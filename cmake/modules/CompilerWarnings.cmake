@@ -82,7 +82,11 @@ function(target_enable_warnings TARGET)
         target_compile_options("${TARGET}" PRIVATE
             ${_COMMON_WARNINGS}
             ${_CLANG_EXTRA})
-    else()  # GCC
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options("${TARGET}" PRIVATE ${_COMMON_WARNINGS})
+    else()
+        message(WARNING
+            "[target_enable_warnings] невідомий компілятор '${CMAKE_CXX_COMPILER_ID}' "
+            "для таргету '${TARGET}' — попередження не застосовано")
     endif()
 endfunction()

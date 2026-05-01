@@ -22,17 +22,10 @@
 
 set -euo pipefail
 
-# --- Кольоровий вивід ------------------------------------------------------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-log_info()    { echo -e "${BLUE}[INFO]${NC}  $*"; }
-log_ok()      { echo -e "${GREEN}[OK]${NC}    $*"; }
-log_warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-log_error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
 
 # --- Перевірка прав --------------------------------------------------------
 require_sudo() {

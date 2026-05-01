@@ -63,29 +63,28 @@ endfunction()
 # ---------------------------------------------------------------------------
 # _ep_rt_traverse — рекурсивний обхід дерева INTERFACE_LINK_LIBRARIES.
 #
-# Використовує глобальні властивості як mutable-стан між рекурсивними
-# викликами (PARENT_SCOPE поширюється тільки на один рівень вгору):
-#   _EP_RT_VISITED       — вже оброблені targets (захист від циклів)
-#   _EP_RT_FOUND_TARGETS — targets з EP_RUNTIME_DIRS_SRC
+# suffix — унікальний ключ (ім'я main_target) для ізоляції глобального стану:
+#   _EP_RT_VISITED_<suffix>       — вже оброблені targets (захист від циклів)
+#   _EP_RT_FOUND_TARGETS_<suffix> — targets з EP_RUNTIME_DIRS_SRC
 # ---------------------------------------------------------------------------
-function(_ep_rt_traverse target)
+function(_ep_rt_traverse target suffix)
     # Перевіряємо і маркуємо як відвіданий
-    get_property(_vis GLOBAL PROPERTY _EP_RT_VISITED)
+    get_property(_vis GLOBAL PROPERTY _EP_RT_VISITED_${suffix})
     list(FIND _vis "${target}" _i)
     if(NOT _i EQUAL -1)
         return()
     endif()
     list(APPEND _vis "${target}")
-    set_property(GLOBAL PROPERTY _EP_RT_VISITED "${_vis}")
+    set_property(GLOBAL PROPERTY _EP_RT_VISITED_${suffix} "${_vis}")
 
     # Перевіряємо цей target на наявність runtime ресурсів
     get_target_property(_srcs "${target}" EP_RUNTIME_DIRS_SRC)
     if(_srcs)
-        get_property(_found GLOBAL PROPERTY _EP_RT_FOUND_TARGETS)
+        get_property(_found GLOBAL PROPERTY _EP_RT_FOUND_TARGETS_${suffix})
         list(FIND _found "${target}" _f)
         if(_f EQUAL -1)
             list(APPEND _found "${target}")
-            set_property(GLOBAL PROPERTY _EP_RT_FOUND_TARGETS "${_found}")
+            set_property(GLOBAL PROPERTY _EP_RT_FOUND_TARGETS_${suffix} "${_found}")
         endif()
     endif()
 
@@ -99,7 +98,7 @@ function(_ep_rt_traverse target)
         if(_dep MATCHES "^\\$<" OR NOT TARGET "${_dep}" OR _dep MATCHES "^_ep_sync_")
             continue()
         endif()
-        _ep_rt_traverse("${_dep}")
+        _ep_rt_traverse("${_dep}" "${suffix}")
     endforeach()
 endfunction()
 
@@ -111,9 +110,10 @@ function(ep_collect_runtime_resources main_target out_file_var)
         message(FATAL_ERROR "[RuntimeDeps] ep_collect_runtime_resources: '${main_target}' не є CMake target")
     endif()
 
-    # Ініціалізуємо глобальний стан для цього обходу
-    set_property(GLOBAL PROPERTY _EP_RT_VISITED "")
-    set_property(GLOBAL PROPERTY _EP_RT_FOUND_TARGETS "")
+    # Ізольований стан для цього обходу (ім'я target як ключ)
+    string(MAKE_C_IDENTIFIER "${main_target}" _suffix)
+    set_property(GLOBAL PROPERTY _EP_RT_VISITED_${_suffix} "")
+    set_property(GLOBAL PROPERTY _EP_RT_FOUND_TARGETS_${_suffix} "")
 
     # Обхід стартує з LINK_LIBRARIES головного таргету
     get_target_property(_direct "${main_target}" LINK_LIBRARIES)
@@ -124,10 +124,10 @@ function(ep_collect_runtime_resources main_target out_file_var)
         if(_dep MATCHES "^\\$<" OR NOT TARGET "${_dep}" OR _dep MATCHES "^_ep_sync_")
             continue()
         endif()
-        _ep_rt_traverse("${_dep}")
+        _ep_rt_traverse("${_dep}" "${_suffix}")
     endforeach()
 
-    get_property(_rt_targets GLOBAL PROPERTY _EP_RT_FOUND_TARGETS)
+    get_property(_rt_targets GLOBAL PROPERTY _EP_RT_FOUND_TARGETS_${_suffix})
 
     # Генеруємо cmake-файл із зібраними даними
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/_ep_cfg")

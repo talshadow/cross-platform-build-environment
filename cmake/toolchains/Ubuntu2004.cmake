@@ -22,40 +22,13 @@ set(UBUNTU2004_GCC_VERSION "10"
 
 set_property(CACHE UBUNTU2004_GCC_VERSION PROPERTY STRINGS "9" "10")
 
+include("${CMAKE_CURRENT_LIST_DIR}/common.cmake")
+
 # --- Пошук компілятора ----------------------------------------------------
-find_program(CMAKE_C_COMPILER   "gcc-${UBUNTU2004_GCC_VERSION}")
-find_program(CMAKE_CXX_COMPILER "g++-${UBUNTU2004_GCC_VERSION}")
-
-if(NOT CMAKE_C_COMPILER OR NOT CMAKE_CXX_COMPILER)
-    message(FATAL_ERROR
-        "\n[Toolchain] GCC ${UBUNTU2004_GCC_VERSION} не знайдено.\n"
-        "Встановіть: sudo apt install gcc-${UBUNTU2004_GCC_VERSION} "
-        "g++-${UBUNTU2004_GCC_VERSION}\n"
-        "Або змініть версію: -DUBUNTU2004_GCC_VERSION=9\n")
-endif()
-
-set(CMAKE_C_COMPILER   "${CMAKE_C_COMPILER}"   CACHE FILEPATH "C compiler"   FORCE)
-set(CMAKE_CXX_COMPILER "${CMAKE_CXX_COMPILER}" CACHE FILEPATH "C++ compiler" FORCE)
-
-# --- Утиліти GCC (gcc-ar / gcc-ranlib потрібні для LTO) -------------------
-# gcc-ar та gcc-ranlib — обгортки над ar/ranlib з підтримкою LTO плагіну.
-# Без них `ar` не розуміє LTO-об'єкти і ENABLE_LTO=ON дасть помилку лінкування.
-find_program(_GCC_AR     "gcc-ar-${UBUNTU2004_GCC_VERSION}")
-find_program(_GCC_RANLIB "gcc-ranlib-${UBUNTU2004_GCC_VERSION}")
-find_program(_GCC_NM     "gcc-nm-${UBUNTU2004_GCC_VERSION}")
-
-if(_GCC_AR)
-    set(CMAKE_AR     "${_GCC_AR}"     CACHE FILEPATH "Archiver (LTO-aware)"  FORCE)
-endif()
-if(_GCC_RANLIB)
-    set(CMAKE_RANLIB "${_GCC_RANLIB}" CACHE FILEPATH "Ranlib (LTO-aware)"    FORCE)
-endif()
-if(_GCC_NM)
-    set(CMAKE_NM     "${_GCC_NM}"     CACHE FILEPATH "NM (LTO-aware)"        FORCE)
-endif()
-unset(_GCC_AR)
-unset(_GCC_RANLIB)
-unset(_GCC_NM)
+# gcc-ar/ranlib/nm — LTO-aware обгортки; без них ENABLE_LTO=ON дасть помилку.
+cross_toolchain_find_versioned_native_gcc(
+    "${UBUNTU2004_GCC_VERSION}"
+    "UBUNTU2004_GCC_VERSION")
 
 # --- Прапори оптимізації для x86_64 --------------------------------------
 # -march=x86-64    — базовий x86_64 (сумісність з будь-яким x86_64)

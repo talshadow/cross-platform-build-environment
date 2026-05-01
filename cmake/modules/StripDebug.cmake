@@ -25,6 +25,23 @@
 cmake_minimum_required(VERSION 3.28)
 
 # ---------------------------------------------------------------------------
+# _strip_define_target(<name> <commands_var> <deps> <comment>)
+#
+# Внутрішня утиліта. Створює custom target якщо він ще не існує.
+#   commands_var — ім'я змінної (зі scope виклику) що містить список COMMAND ...
+#   deps         — список цілей для DEPENDS
+# ---------------------------------------------------------------------------
+function(_strip_define_target name commands_var deps comment)
+    if(NOT TARGET ${name})
+        add_custom_target(${name}
+            ${${commands_var}}
+            DEPENDS ${deps}
+            COMMENT "${comment}"
+        )
+    endif()
+endfunction()
+
+# ---------------------------------------------------------------------------
 # _strip_find_objcopy
 # Шукає objcopy: спочатку з тим самим префіксом що й CMAKE_STRIP,
 # потім просто "objcopy".
@@ -130,32 +147,12 @@ function(target_add_strip_targets main_target)
         endif()
     endforeach()
 
-    # --- Ціль: strip_debug ---
-    if(NOT TARGET strip_debug)
-        add_custom_target(strip_debug
-            ${_cmds_strip_debug}
-            DEPENDS ${_targets}
-            COMMENT "Видалення debug секцій (--strip-debug)"
-        )
-    endif()
-
-    # --- Ціль: strip_all ---
-    if(NOT TARGET strip_all)
-        add_custom_target(strip_all
-            ${_cmds_strip_all}
-            DEPENDS ${_targets}
-            COMMENT "Видалення всіх символів (--strip-all)"
-        )
-    endif()
-
-    # --- Ціль: strip_split ---
-    if(NOT TARGET strip_split)
-        add_custom_target(strip_split
-            ${_cmds_strip_split}
-            DEPENDS ${_targets}
-            COMMENT "Копіювання у ${_stripped_dir}/ з окремим .debug файлом"
-        )
-    endif()
+    _strip_define_target(strip_debug _cmds_strip_debug "${_targets}"
+        "Видалення debug секцій (--strip-debug)")
+    _strip_define_target(strip_all _cmds_strip_all "${_targets}"
+        "Видалення всіх символів (--strip-all)")
+    _strip_define_target(strip_split _cmds_strip_split "${_targets}"
+        "Копіювання у ${_stripped_dir}/ з окремим .debug файлом")
 
     message(STATUS "[StripDebug] Strip-цілі додано: strip_debug, strip_all, strip_split → ${_stripped_dir}/")
 endfunction()

@@ -19,16 +19,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info()  { echo -e "${BLUE}[INFO]${NC}  $*"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
 
 # --- Значення за замовчуванням ---------------------------------------------
 PRESET=""
@@ -103,13 +95,14 @@ fi
 # до нового хоста не потребує підтвердження. Зручно для автоматизації,
 # але зменшує захист від MITM-атак — використовуйте лише в довіреній мережі.
 log_warn "SSH: StrictHostKeyChecking=no — host key не перевіряється (зручно для CI/автоматизації, не для публічних мереж)"
-SSH_OPTS="-p ${TARGET_PORT} -o StrictHostKeyChecking=no"
+SSH_OPTS=(-p "${TARGET_PORT}" -o StrictHostKeyChecking=no)
 if [[ -n "${SSH_KEY}" ]]; then
-    SSH_OPTS+=" -i ${SSH_KEY}"
+    SSH_OPTS+=(-i "${SSH_KEY}")
 fi
 
-RSYNC_RSH="ssh ${SSH_OPTS}"
-SSH_CMD="ssh ${SSH_OPTS}"
+SSH_CMD=(ssh "${SSH_OPTS[@]}")
+printf -v RSYNC_RSH 'ssh'
+for _o in "${SSH_OPTS[@]}"; do printf -v RSYNC_RSH '%s %q' "${RSYNC_RSH}" "${_o}"; done
 
 if "${USE_PASSWORD}"; then
     if ! command -v sshpass &>/dev/null; then
@@ -121,8 +114,9 @@ if "${USE_PASSWORD}"; then
         export SSHPASS
         echo ""
     fi
-    RSYNC_RSH="sshpass -e ssh ${SSH_OPTS}"
-    SSH_CMD="sshpass -e ssh ${SSH_OPTS}"
+    SSH_CMD=(sshpass -e ssh "${SSH_OPTS[@]}")
+    printf -v RSYNC_RSH 'sshpass -e ssh'
+    for _o in "${SSH_OPTS[@]}"; do printf -v RSYNC_RSH '%s %q' "${RSYNC_RSH}" "${_o}"; done
 fi
 
 # --- Strip бінарників (опціонально) ----------------------------------------
@@ -150,8 +144,7 @@ log_info "Пресет : ${PRESET}"
 log_info "Ціль   : ${TARGET_USER}@${TARGET_HOST}:${REMOTE_DIR}"
 
 # Створення каталогу на цільовій системі
-# shellcheck disable=SC2029
-${SSH_CMD} "${TARGET_USER}@${TARGET_HOST}" "mkdir -p '${REMOTE_DIR}'"
+"${SSH_CMD[@]}" "${TARGET_USER}@${TARGET_HOST}" -- mkdir -p "${REMOTE_DIR}"
 
 # Копіювання бінарників
 if [[ -d "${BIN_DIR}" ]]; then
@@ -176,7 +169,10 @@ log_ok "=== Розгортання завершено ==="
 # --- Запуск на цільовій системі (опціонально) -----------------------------
 if [[ -n "${RUN_BINARY}" ]]; then
     log_info "=== Запуск: ${RUN_BINARY} ${RUN_ARGS} ==="
-    # shellcheck disable=SC2029
-    ${SSH_CMD} "${TARGET_USER}@${TARGET_HOST}" \
-        "cd '${REMOTE_DIR}' && ./'${RUN_BINARY}' ${RUN_ARGS}"
+    read -r -a _run_args_array <<< "${RUN_ARGS}"
+    _safe_remote="cd $(printf '%q' "${REMOTE_DIR}") && ./$(printf '%q' "${RUN_BINARY}")"
+    for _a in "${_run_args_array[@]+"${_run_args_array[@]}"}"; do
+        _safe_remote+=" $(printf '%q' "${_a}")"
+    done
+    "${SSH_CMD[@]}" "${TARGET_USER}@${TARGET_HOST}" -- "${_safe_remote}"
 fi

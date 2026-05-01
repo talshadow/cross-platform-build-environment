@@ -52,21 +52,4 @@ set(CMAKE_CXX_FLAGS_INIT "${_RPI1_CPU_FLAGS} -std=c++20" CACHE INTERNAL "")
 set(RPI_SYSROOT "" CACHE PATH
     "Шлях до sysroot Raspberry Pi (порожньо = збірка без sysroot)")
 
-if(RPI_SYSROOT)
-    if(NOT IS_DIRECTORY "${RPI_SYSROOT}")
-        message(FATAL_ERROR
-            "[Toolchain] RPI_SYSROOT не існує: '${RPI_SYSROOT}'")
-    endif()
-    set(CMAKE_SYSROOT "${RPI_SYSROOT}")
-    if(NOT "${RPI_SYSROOT}" IN_LIST CMAKE_FIND_ROOT_PATH)
-        list(APPEND CMAKE_FIND_ROOT_PATH "${RPI_SYSROOT}")
-    endif()
-    cross_toolchain_setup_sysroot()
-else()
-    if(CMAKE_CROSSCOMPILING)
-        message(FATAL_ERROR
-            "[RaspberryPi1] RPI_SYSROOT не задано. "
-            "Для крос-компіляції задайте -DRPI_SYSROOT=<path>")
-    endif()
-    cross_toolchain_no_sysroot()
-endif()
+cross_toolchain_apply_sysroot(RPI_SYSROOT)

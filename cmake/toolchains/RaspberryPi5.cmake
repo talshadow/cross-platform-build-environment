@@ -26,33 +26,11 @@ set(RPI5_GCC_VERSION "13"
 set(_TOOLCHAIN_PREFIX_VAR RPI5_TOOLCHAIN_PREFIX)
 include("${CMAKE_CURRENT_LIST_DIR}/common.cmake")
 
-find_program(_RPI5_CC_VERSIONED
-    "${RPI5_TOOLCHAIN_PREFIX}-gcc-${RPI5_GCC_VERSION}"
-    HINTS ENV PATH)
+cross_toolchain_find_versioned_cross_compiler(
+    "${RPI5_TOOLCHAIN_PREFIX}"
+    "${RPI5_GCC_VERSION}")
 
-if(_RPI5_CC_VERSIONED)
-    find_program(_RPI5_CXX_VERSIONED
-        "${RPI5_TOOLCHAIN_PREFIX}-g++-${RPI5_GCC_VERSION}"
-        HINTS ENV PATH)
-    set(CMAKE_C_COMPILER   "${_RPI5_CC_VERSIONED}"  CACHE FILEPATH "C compiler"   FORCE)
-    set(CMAKE_CXX_COMPILER "${_RPI5_CXX_VERSIONED}" CACHE FILEPATH "C++ compiler" FORCE)
-    unset(_RPI5_CXX_VERSIONED)
-    find_program(_AR     "${RPI5_TOOLCHAIN_PREFIX}-ar")
-    find_program(_STRIP  "${RPI5_TOOLCHAIN_PREFIX}-strip")
-    find_program(_RANLIB "${RPI5_TOOLCHAIN_PREFIX}-ranlib")
-    if(_AR)
-        set(CMAKE_AR     "${_AR}"     CACHE FILEPATH "Archiver" FORCE)
-    endif()
-    if(_STRIP)
-        set(CMAKE_STRIP  "${_STRIP}"  CACHE FILEPATH "Strip"    FORCE)
-    endif()
-    if(_RANLIB)
-        set(CMAKE_RANLIB "${_RANLIB}" CACHE FILEPATH "Ranlib"   FORCE)
-    endif()
-    unset(_AR)
-    unset(_STRIP)
-    unset(_RANLIB)
-else()
+if(NOT _vcc_found)
     message(WARNING
         "[RaspberryPi5] gcc-${RPI5_GCC_VERSION} не знайдено, "
         "використовується неверсований aarch64-linux-gnu-gcc. "
@@ -61,7 +39,7 @@ else()
         "${RPI5_TOOLCHAIN_PREFIX}"
         "gcc-${RPI5_GCC_VERSION}-aarch64-linux-gnu g++-${RPI5_GCC_VERSION}-aarch64-linux-gnu")
 endif()
-unset(_RPI5_CC_VERSIONED)
+unset(_vcc_found)
 
 # --- CPU-специфічні прапори -----------------------------------------------
 # -mcpu=cortex-a76  — Cortex-A76 (BCM2712), ARMv8.2-A
@@ -80,21 +58,4 @@ set(CMAKE_CXX_FLAGS_INIT "${_RPI5_CPU_FLAGS} -std=c++20" CACHE INTERNAL "")
 set(RPI_SYSROOT "" CACHE PATH
     "Шлях до sysroot Raspberry Pi (порожньо = збірка без sysroot)")
 
-if(RPI_SYSROOT)
-    if(NOT IS_DIRECTORY "${RPI_SYSROOT}")
-        message(FATAL_ERROR
-            "[Toolchain] RPI_SYSROOT не існує: '${RPI_SYSROOT}'")
-    endif()
-    set(CMAKE_SYSROOT "${RPI_SYSROOT}")
-    if(NOT "${RPI_SYSROOT}" IN_LIST CMAKE_FIND_ROOT_PATH)
-        list(APPEND CMAKE_FIND_ROOT_PATH "${RPI_SYSROOT}")
-    endif()
-    cross_toolchain_setup_sysroot()
-else()
-    if(CMAKE_CROSSCOMPILING)
-        message(FATAL_ERROR
-            "[RaspberryPi5] RPI_SYSROOT не задано. "
-            "Для крос-компіляції задайте -DRPI_SYSROOT=<path>")
-    endif()
-    cross_toolchain_no_sysroot()
-endif()
+cross_toolchain_apply_sysroot(RPI_SYSROOT)

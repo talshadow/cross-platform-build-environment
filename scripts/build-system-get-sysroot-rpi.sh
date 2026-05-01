@@ -19,11 +19,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
-log_info()  { echo -e "${BLUE}[INFO]${NC}  $*"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
 
 METHOD=""
 DEST=""
@@ -259,7 +256,7 @@ method_live() {
 # ===========================================================================
 fixup_symlinks() {
     log_info "=== Виправлення абсолютних симлінків ==="
-    find "${DEST}" -type l | while IFS= read -r link; do
+    while IFS= read -r -d '' link; do
         local target
         target=$(readlink "${link}")
         if [[ "${target}" == /* ]]; then
@@ -270,7 +267,7 @@ fixup_symlinks() {
                 ln -sf "${rel_target}" "${link}"
             fi
         fi
-    done
+    done < <(find "${DEST}" -type l -print0)
     log_ok "Симлінки виправлено"
 
     echo ""

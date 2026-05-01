@@ -33,16 +33,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info()  { echo -e "${BLUE}[INFO]${NC}  $*"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+# shellcheck source=common.sh
+source "${SCRIPT_DIR}/common.sh"
 
 # --- Значення за замовчуванням ---------------------------------------------
 RPI_HOST=""
@@ -146,12 +138,13 @@ if [[ -n "${RPI_SSH_KEY}" ]]; then
     SSH_OPTS+=(-i "${RPI_SSH_KEY}")
 fi
 
-SSH_CMD="ssh"
-RSYNC_RSH="ssh ${SSH_OPTS[*]}"
+printf -v RSYNC_RSH 'ssh'
+for _o in "${SSH_OPTS[@]}"; do printf -v RSYNC_RSH '%s %q' "${RSYNC_RSH}" "${_o}"; done
 
 if "${USE_PASSWORD}"; then
     log_warn "Режим з паролем — буде запитано пароль для кожного каталогу"
-    RSYNC_RSH="sshpass -e ssh ${SSH_OPTS[*]}"
+    printf -v RSYNC_RSH 'sshpass -e ssh'
+    for _o in "${SSH_OPTS[@]}"; do printf -v RSYNC_RSH '%s %q' "${RSYNC_RSH}" "${_o}"; done
     if [[ -z "${SSHPASS:-}" ]]; then
         read -rsp "SSH пароль для ${RPI_USER}@${RPI_HOST}: " SSHPASS
         export SSHPASS
@@ -207,7 +200,7 @@ log_info "=== Виправлення абсолютних симлінків ===
 if "${DRY_RUN}"; then
     log_warn "DRY RUN: виправлення симлінків пропущено"
 else
-    find "${SYSROOT_DEST}" -type l | while IFS= read -r link; do
+    while IFS= read -r -d '' link; do
         target=$(readlink "${link}")
         if [[ "${target}" == /* ]]; then
             # Абсолютний симлінк → робимо відносним через sysroot
@@ -217,7 +210,7 @@ else
                 ln -sf "${rel_target}" "${link}"
             fi
         fi
-    done
+    done < <(find "${SYSROOT_DEST}" -type l -print0)
     log_ok "Симлінки виправлено"
 fi
 

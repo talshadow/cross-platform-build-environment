@@ -29,6 +29,12 @@ function(declare_cmake_enum VAR_NAME DEFAULT DOC)
         message(FATAL_ERROR "[declare_cmake_enum] Список допустимих значень не може бути порожнім (${VAR_NAME})")
     endif()
 
+    if(NOT "${DEFAULT}" IN_LIST _allowed)
+        string(REPLACE ";" ", " _print "${_allowed}")
+        message(FATAL_ERROR
+            "[declare_cmake_enum] DEFAULT='${DEFAULT}' для ${VAR_NAME} не входить до списку дозволених: [${_print}]")
+    endif()
+
     set(${VAR_NAME} "${DEFAULT}" CACHE STRING "${DOC}")
 
     # STRINGS — для випадаючого списку в cmake-gui / ccmake та для валідації

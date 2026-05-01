@@ -1,6 +1,6 @@
 {
   "version": 6,
-  "cmakeMinimumRequired": { "major": 3, "minor": 23, "patch": 0 },
+  "cmakeMinimumRequired": { "major": 3, "minor": 28, "patch": 0 },
 
   "configurePresets": [
 
@@ -261,7 +261,7 @@
       "name": "native-debug",
       "configurePreset": "native-debug",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 4 }
+      "execution": { "jobs": 0 }
     },
     {
       "name": "native-asan",
@@ -279,7 +279,7 @@
       "name": "clang-debug",
       "configurePreset": "clang-debug",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 4 }
+      "execution": { "jobs": 0 }
     },
     {
       "name": "clang-asan",
